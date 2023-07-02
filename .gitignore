@@ -23,6 +23,7 @@ gin-bin
 *.dll
 *.so
 *.dylib
+twoo
 
 # Test binary, build with `go test -c`
 *.test
