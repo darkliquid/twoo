@@ -8,10 +8,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	cfgFile     string
-	twitterData string
-)
+var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
@@ -32,7 +29,6 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.twoo.yaml)")
-	rootCmd.PersistentFlags().StringVar(&twitterData, "twitter", "", "location of the twitter data (directory or zip file)")
 }
 
 // initConfig reads in config file and ENV variables if set.

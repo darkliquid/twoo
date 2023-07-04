@@ -70,3 +70,23 @@ func (d *Data) Tweets() ([]Tweet, error) {
 
 	return tweets, nil
 }
+
+// EachTweet calls fn for each tweet.
+func (d *Data) EachTweet(fn func(Tweet) error) error {
+	r, err := d.readData("tweets")
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, 1024)
+	for iter.ReadArray() {
+		var tweet Tweet
+		decode(iter.ReadAny().Get("tweet"), &tweet)
+		if err := fn(tweet); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

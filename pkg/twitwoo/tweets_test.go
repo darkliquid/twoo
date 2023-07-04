@@ -21,3 +21,23 @@ func TestTweets(t *testing.T) {
 		"https://t.co/UeQo1oR1hd": "http://dice.camp/@darkliquid",
 	}, tw[7].URLMap)
 }
+
+func TestEachTweet(t *testing.T) {
+	fs := afero.NewBasePathFs(afero.NewOsFs(), "./testdata")
+	data := New(fs)
+
+	var tw []Tweet
+	err := data.EachTweet(func(t Tweet) error {
+		tw = append(tw, t)
+		return nil
+	})
+
+	require.NoError(t, err)
+	require.Len(t, tw, 28)
+	require.Equal(t, "1541752634348019715", tw[27].ID)
+
+	require.Equal(t, []string{"dungeon23", "City23", "setting23", "finishit23"}, tw[7].Hashtags)
+	require.Equal(t, map[string]string{
+		"https://t.co/UeQo1oR1hd": "http://dice.camp/@darkliquid",
+	}, tw[7].URLMap)
+}
