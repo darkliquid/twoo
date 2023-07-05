@@ -1,15 +1,17 @@
-package twitwoo
+package twitwoo_test
 
 import (
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
+
+	"github.com/darkliquid/twoo/pkg/twitwoo"
 )
 
 func TestTweets(t *testing.T) {
 	fs := afero.NewBasePathFs(afero.NewOsFs(), "./testdata")
-	data := New(fs)
+	data := twitwoo.New(fs)
 
 	tw, err := data.Tweets()
 	require.NoError(t, err)
@@ -24,10 +26,10 @@ func TestTweets(t *testing.T) {
 
 func TestEachTweet(t *testing.T) {
 	fs := afero.NewBasePathFs(afero.NewOsFs(), "./testdata")
-	data := New(fs)
+	data := twitwoo.New(fs)
 
-	var tw []Tweet
-	err := data.EachTweet(func(t Tweet) error {
+	var tw []twitwoo.Tweet
+	err := data.EachTweet(func(t twitwoo.Tweet) error {
 		tw = append(tw, t)
 		return nil
 	})

@@ -21,11 +21,11 @@ var tweetsCmd = &cobra.Command{
 	Long:  `extract the tweets data included in the archive`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
-		fs, close, err := util.Open(args[0])
+		fs, closer, err := util.Open(args[0])
 		if err != nil {
 			return err
 		}
-		defer close()
+		defer closer() //nolint:errcheck // nothing we can do about this
 
 		tmpl, err := template.New("tweet").Parse(tweetFormat)
 		if err != nil {
@@ -33,11 +33,9 @@ var tweetsCmd = &cobra.Command{
 		}
 
 		data := twitwoo.New(fs)
-		data.EachTweet(func(t twitwoo.Tweet) error {
+		return data.EachTweet(func(t twitwoo.Tweet) error {
 			return tmpl.Execute(os.Stdout, t)
 		})
-
-		return nil
 	},
 }
 

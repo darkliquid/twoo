@@ -6,6 +6,8 @@ import (
 	"io"
 )
 
+const parseBufSize = 1024
+
 func skipPreamble(preamble string, r io.Reader) error {
 	buf := make([]byte, len(preamble))
 	if _, err := io.ReadFull(r, buf); err != nil {
@@ -24,9 +26,9 @@ type multiReadCloser struct {
 	closers []io.Closer
 }
 
-// NewMultiReadCloser returns a new io.ReadCloser that's the
+// newMultiReadCloser returns a new io.ReadCloser that's the
 // logical concatenation of the provided input readers.
-func NewMultiReadCloser(r ...io.Reader) *multiReadCloser {
+func newMultiReadCloser(r ...io.Reader) *multiReadCloser {
 	mrc := &multiReadCloser{
 		Reader: io.MultiReader(r...),
 	}

@@ -21,11 +21,11 @@ var manifestCmd = &cobra.Command{
 	Long:  `extract the manifest data included in the archive`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
-		fs, close, err := util.Open(args[0])
+		fs, closer, err := util.Open(args[0])
 		if err != nil {
 			return err
 		}
-		defer close()
+		defer closer() //nolint:errcheck // nothing we can do about this
 
 		tmpl, err := template.New("manifest").Parse(manifestFormat)
 		if err != nil {

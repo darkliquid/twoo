@@ -7,14 +7,14 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-// UserInfo is the structure of the user info section of the manifest.json file
+// UserInfo is the structure of the user info section of the manifest.json file.
 type UserInfo struct {
 	UserName    string `json:"userName"`
 	DisplayName string `json:"displayName"`
 	AccountID   int64  `json:"accountId"`
 }
 
-// ArchiveInfo is the structure of the archive info section of the manifest.json file
+// ArchiveInfo is the structure of the archive info section of the manifest.json file.
 type ArchiveInfo struct {
 	GenerationDate   time.Time `json:"generationDate"`
 	SizeBytes        int64     `json:"sizeBytes"`
@@ -22,20 +22,20 @@ type ArchiveInfo struct {
 	IsPartialArchive bool      `json:"isPartialArchive"`
 }
 
-// DataFile is the structure of the data file sections of the manifest.json file
+// DataFile is the structure of the data file sections of the manifest.json file.
 type DataFile struct {
 	Name     string `json:"fileName"`
 	Preamble string `json:"globalName"`
 	Count    int64  `json:"count"`
 }
 
-// DataType is the structure of the data type sections of the manifest.json file
+// DataType is the structure of the data type sections of the manifest.json file.
 type DataType struct {
 	MediaDir string     `json:"mediaDirectory,omitempty"`
 	Files    []DataFile `json:"files"`
 }
 
-// Manifest is the structure of the manifest.json file
+// Manifest is the structure of the manifest.json file.
 type Manifest struct {
 	DataTypes struct {
 		Account                         DataType `json:"account"`
@@ -131,6 +131,7 @@ type Manifest struct {
 	ArchiveInfo ArchiveInfo `json:"archiveInfo"`
 }
 
+// Manifest is the manifest.json file in the archive.
 func (d *Data) Manifest() (*Manifest, error) {
 	if d.manifestData != nil {
 		return d.manifestData, nil
@@ -144,7 +145,7 @@ func (d *Data) Manifest() (*Manifest, error) {
 
 	// Manifest is never going to be that large, so just load it all in.
 	d.manifestData = &Manifest{}
-	if err := jsoniter.ConfigCompatibleWithStandardLibrary.NewDecoder(f).Decode(d.manifestData); err != nil {
+	if err = jsoniter.ConfigCompatibleWithStandardLibrary.NewDecoder(f).Decode(d.manifestData); err != nil {
 		return nil, fmt.Errorf("failed to decode manifest: %w", err)
 	}
 

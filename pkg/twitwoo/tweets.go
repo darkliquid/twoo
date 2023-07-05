@@ -5,6 +5,7 @@ import (
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/spf13/afero"
 )
 
 type entities struct {
@@ -61,14 +62,16 @@ func (d *Data) readTweets() (io.ReadCloser, error) {
 
 	files := make([]io.Reader, len(m.DataTypes.Tweets.Files))
 	for i, df := range m.DataTypes.Tweets.Files {
-		r, err := d.readDataFile(&df)
+		df := df
+		var r afero.File
+		r, err = d.readDataFile(&df)
 		if err != nil {
 			return nil, err
 		}
 		files[i] = r
 	}
 
-	return NewMultiReadCloser(files...), nil
+	return newMultiReadCloser(files...), nil
 }
 
 // Tweets returns a slice of tweets.
@@ -80,7 +83,7 @@ func (d *Data) Tweets() ([]Tweet, error) {
 	defer r.Close()
 
 	tweets := make([]Tweet, 0)
-	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, 1024)
+	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, parseBufSize)
 	for iter.ReadArray() {
 		var tweet Tweet
 		decode(iter.ReadAny().Get("tweet"), &tweet)
@@ -98,11 +101,11 @@ func (d *Data) EachTweet(fn func(Tweet) error) error {
 	}
 	defer r.Close()
 
-	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, 1024)
+	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, parseBufSize)
 	for iter.ReadArray() {
 		var tweet Tweet
 		decode(iter.ReadAny().Get("tweet"), &tweet)
-		if err := fn(tweet); err != nil {
+		if err = fn(tweet); err != nil {
 			return err
 		}
 	}

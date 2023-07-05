@@ -8,84 +8,78 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
+func stringToInt64(op string) jsoniter.DecoderFunc {
+	return func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+		var err error
+		*((*int64)(ptr)), err = strconv.ParseInt(iter.ReadString(), 10, 64)
+		if err != nil {
+			iter.ReportError(op, err.Error())
+			return
+		}
+	}
+}
+
+func stringToTime(op, layout string) jsoniter.DecoderFunc {
+	return func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+		var err error
+		*((*time.Time)(ptr)), err = time.Parse(layout, iter.ReadString())
+		if err != nil {
+			iter.ReportError(op, err.Error())
+			return
+		}
+	}
+}
+
 func init() {
 	// Manifest
-	jsoniter.RegisterFieldDecoderFunc("twitwoo.UserInfo", "AccountID", func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-		var err error
-		*((*int64)(ptr)), err = strconv.ParseInt(iter.ReadString(), 10, 64)
-		if err != nil {
-			iter.ReportError("decode account id", err.Error())
-			return
-		}
-	})
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.UserInfo",
+		"AccountID",
+		stringToInt64("decode account id"),
+	)
 
-	jsoniter.RegisterFieldDecoderFunc("twitwoo.ArchiveInfo", "SizeBytes", func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-		var err error
-		*((*int64)(ptr)), err = strconv.ParseInt(iter.ReadString(), 10, 64)
-		if err != nil {
-			iter.ReportError("decode size bytes", err.Error())
-			return
-		}
-	})
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.ArchiveInfo",
+		"SizeBytes",
+		stringToInt64("decode size bytes"),
+	)
 
-	jsoniter.RegisterFieldDecoderFunc("twitwoo.ArchiveInfo", "MaxPartSizeBytes", func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-		var err error
-		*((*int64)(ptr)), err = strconv.ParseInt(iter.ReadString(), 10, 64)
-		if err != nil {
-			iter.ReportError("decode max part size bytes", err.Error())
-			return
-		}
-	})
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.ArchiveInfo",
+		"MaxPartSizeBytes",
+		stringToInt64("decode max part size bytes"),
+	)
 
-	jsoniter.RegisterFieldDecoderFunc("twitwoo.ArchiveInfo", "GenerationDate", func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-		timeStr := iter.ReadString()
-		t, err := time.Parse(time.RFC3339, timeStr)
-		if err != nil {
-			iter.ReportError("decode created at", err.Error())
-			return
-		}
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.ArchiveInfo",
+		"GenerationDate",
+		stringToTime("decode generation date", time.RFC3339),
+	)
 
-		*((*time.Time)(ptr)) = t
-	})
-
-	jsoniter.RegisterFieldDecoderFunc("twitwoo.DataFile", "Count", func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-		var err error
-		*((*int64)(ptr)), err = strconv.ParseInt(iter.ReadString(), 10, 64)
-		if err != nil {
-			iter.ReportError("decode count", err.Error())
-			return
-		}
-	})
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.DataFile",
+		"Count",
+		stringToInt64("decode count"),
+	)
 
 	// Tweets
-	jsoniter.RegisterFieldDecoderFunc("twitwoo.Tweet", "FavoriteCount", func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-		var err error
-		*((*int64)(ptr)), err = strconv.ParseInt(iter.ReadString(), 10, 64)
-		if err != nil {
-			iter.ReportError("decode favorite count", err.Error())
-			return
-		}
-	})
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.Tweet",
+		"FavoriteCount",
+		stringToInt64("decode favourite count"),
+	)
 
-	jsoniter.RegisterFieldDecoderFunc("twitwoo.Tweet", "RetweetCount", func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-		var err error
-		*((*int64)(ptr)), err = strconv.ParseInt(iter.ReadString(), 10, 64)
-		if err != nil {
-			iter.ReportError("decode retweet count", err.Error())
-			return
-		}
-	})
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.Tweet",
+		"RetweetCount",
+		stringToInt64("decode retweet count"),
+	)
 
-	jsoniter.RegisterFieldDecoderFunc("twitwoo.Tweet", "CreatedAt", func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-		timeStr := iter.ReadString()
-		t, err := time.Parse(time.RubyDate, timeStr)
-		if err != nil {
-			iter.ReportError("decode created at", err.Error())
-			return
-		}
-
-		*((*time.Time)(ptr)) = t
-	})
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.Tweet",
+		"CreatedAt",
+		stringToTime("decode created at", time.RubyDate),
+	)
 }
 
 type decoder interface {
