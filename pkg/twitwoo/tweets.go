@@ -54,7 +54,7 @@ func (t *Tweet) decode(el jsoniter.Any) {
 }
 
 func (d *Data) readTweets() (io.ReadCloser, error) {
-	m, err := d.manifest()
+	m, err := d.Manifest()
 	if err != nil {
 		return nil, err
 	}

@@ -131,7 +131,7 @@ type Manifest struct {
 	ArchiveInfo ArchiveInfo `json:"archiveInfo"`
 }
 
-func (d *Data) manifest() (*Manifest, error) {
+func (d *Data) Manifest() (*Manifest, error) {
 	if d.manifestData != nil {
 		return d.manifestData, nil
 	}
@@ -142,6 +142,7 @@ func (d *Data) manifest() (*Manifest, error) {
 	}
 	defer f.Close()
 
+	// Manifest is never going to be that large, so just load it all in.
 	d.manifestData = &Manifest{}
 	if err := jsoniter.ConfigCompatibleWithStandardLibrary.NewDecoder(f).Decode(d.manifestData); err != nil {
 		return nil, fmt.Errorf("failed to decode manifest: %w", err)

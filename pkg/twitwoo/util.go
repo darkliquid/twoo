@@ -20,10 +20,12 @@ func skipPreamble(preamble string, r io.Reader) error {
 }
 
 type multiReadCloser struct {
-	closers []io.Closer
 	io.Reader
+	closers []io.Closer
 }
 
+// NewMultiReadCloser returns a new io.ReadCloser that's the
+// logical concatenation of the provided input readers.
 func NewMultiReadCloser(r ...io.Reader) *multiReadCloser {
 	mrc := &multiReadCloser{
 		Reader: io.MultiReader(r...),
@@ -38,6 +40,7 @@ func NewMultiReadCloser(r ...io.Reader) *multiReadCloser {
 	return mrc
 }
 
+// Close closes all the readers. Implements io.Closer.
 func (mrc *multiReadCloser) Close() error {
 	var err error
 	for _, c := range mrc.closers {
