@@ -54,35 +54,37 @@ func (t *Tweet) decode(el jsoniter.Any) {
 	}
 }
 
-func (d *Data) readTweets() (io.ReadCloser, error) {
+func (d *Data) readTweets() (io.ReadCloser, int64, error) {
 	m, err := d.Manifest()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	files := make([]io.Reader, len(m.DataTypes.Tweets.Files))
+	count := int64(0)
 	for i, df := range m.DataTypes.Tweets.Files {
 		df := df
 		var r afero.File
 		r, err = d.readDataFile(&df)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		files[i] = r
+		count += df.Count
 	}
 
-	return newMultiReadCloser(files...), nil
+	return newMultiReadCloser(files...), count, nil
 }
 
 // Tweets returns a slice of tweets.
 func (d *Data) Tweets() ([]Tweet, error) {
-	r, err := d.readTweets()
+	r, count, err := d.readTweets()
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
 
-	tweets := make([]Tweet, 0)
+	tweets := make([]Tweet, 0, count)
 	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, parseBufSize)
 	for iter.ReadArray() {
 		var tweet Tweet
@@ -95,7 +97,7 @@ func (d *Data) Tweets() ([]Tweet, error) {
 
 // EachTweet calls fn for each tweet.
 func (d *Data) EachTweet(fn func(Tweet) error) error {
-	r, err := d.readTweets()
+	r, _, err := d.readTweets()
 	if err != nil {
 		return err
 	}
