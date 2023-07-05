@@ -1,20 +1,25 @@
 package twitwoo
 
-const manifest_preamble = `window.__THAR_CONFIG = `
+import (
+	"fmt"
+	"time"
+
+	jsoniter "github.com/json-iterator/go"
+)
 
 // UserInfo is the structure of the user info section of the manifest.json file
 type UserInfo struct {
-	AccountID   int64  `json:"accountId"`
 	UserName    string `json:"userName"`
 	DisplayName string `json:"displayName"`
+	AccountID   int64  `json:"accountId"`
 }
 
 // ArchiveInfo is the structure of the archive info section of the manifest.json file
 type ArchiveInfo struct {
-	SizeBytes        int64  `json:"sizeBytes"`
-	GenerationDate   string `json:"generationDate"`
-	IsPartialArchive bool   `json:"isPartialArchive"`
-	MaxPartSizeBytes int64  `json:"maxPartSizeBytes"`
+	GenerationDate   time.Time `json:"generationDate"`
+	SizeBytes        int64     `json:"sizeBytes"`
+	MaxPartSizeBytes int64     `json:"maxPartSizeBytes"`
+	IsPartialArchive bool      `json:"isPartialArchive"`
 }
 
 // DataFile is the structure of the data file sections of the manifest.json file
@@ -32,9 +37,7 @@ type DataType struct {
 
 // Manifest is the structure of the manifest.json file
 type Manifest struct {
-	UserInfo    UserInfo    `json:"userInfo"`
-	ArchiveInfo ArchiveInfo `json:"archiveInfo"`
-	DataTypes   struct {
+	DataTypes struct {
 		Account                         DataType `json:"account"`
 		AccountCreationIP               DataType `json:"accountCreationIp"`
 		AccountLabel                    DataType `json:"accountLabel"`
@@ -124,4 +127,25 @@ type Manifest struct {
 		UserLinkClicks                  DataType `json:"userLinkClicks"`
 		Verified                        DataType `json:"verified"`
 	} `json:"dataTypes"`
+	UserInfo    UserInfo    `json:"userInfo"`
+	ArchiveInfo ArchiveInfo `json:"archiveInfo"`
+}
+
+func (d *Data) manifest() (*Manifest, error) {
+	if d.manifestData != nil {
+		return d.manifestData, nil
+	}
+
+	f, err := d.readDataFile(&DataFile{Name: "data/manifest.js", Preamble: "__THAR_CONFIG"})
+	if err != nil {
+		return nil, fmt.Errorf("failed to load manifest: %w", err)
+	}
+	defer f.Close()
+
+	d.manifestData = &Manifest{}
+	if err := jsoniter.ConfigCompatibleWithStandardLibrary.NewDecoder(f).Decode(d.manifestData); err != nil {
+		return nil, fmt.Errorf("failed to decode manifest: %w", err)
+	}
+
+	return d.manifestData, nil
 }

@@ -1,10 +1,10 @@
 package twitwoo
 
 import (
+	"io"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
-	"github.com/spf13/afero"
 )
 
 type entities struct {
@@ -53,12 +53,22 @@ func (t *Tweet) decode(el jsoniter.Any) {
 	}
 }
 
-func (d *Data) readTweets() (afero.File, error) {
-	r, err := d.readData("tweets", tweetsPreamble)
+func (d *Data) readTweets() (io.ReadCloser, error) {
+	m, err := d.manifest()
 	if err != nil {
 		return nil, err
 	}
-	return r, nil
+
+	files := make([]io.Reader, len(m.DataTypes.Tweets.Files))
+	for i, df := range m.DataTypes.Tweets.Files {
+		r, err := d.readDataFile(&df)
+		if err != nil {
+			return nil, err
+		}
+		files[i] = r
+	}
+
+	return NewMultiReadCloser(files...), nil
 }
 
 // Tweets returns a slice of tweets.

@@ -8,7 +8,8 @@ import (
 
 // Data is a struct that provides an interface to the data archive.
 type Data struct {
-	fs afero.Fs
+	fs           afero.Fs
+	manifestData *Manifest
 }
 
 // New returns a new Data struct.
@@ -18,13 +19,13 @@ func New(fs afero.Fs) *Data {
 	}
 }
 
-func (d *Data) readData(fn, preamble string) (afero.File, error) {
-	f, err := d.fs.Open(fmt.Sprintf("data/%s.js", fn))
+func (d *Data) readDataFile(df *DataFile) (afero.File, error) {
+	f, err := d.fs.Open(df.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = SkipPreamble(preamble, f); err != nil {
+	if err = skipPreamble(fmt.Sprintf("window.%s = ", df.Preamble), f); err != nil {
 		return nil, err
 	}
 
