@@ -4,6 +4,7 @@ import (
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/spf13/afero"
 )
 
 type entities struct {
@@ -52,9 +53,17 @@ func (t *Tweet) decode(el jsoniter.Any) {
 	}
 }
 
+func (d *Data) readTweets() (afero.File, error) {
+	r, err := d.readData("tweets", tweetsPreamble)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // Tweets returns a slice of tweets.
 func (d *Data) Tweets() ([]Tweet, error) {
-	r, err := d.readData("tweets")
+	r, err := d.readTweets()
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +82,7 @@ func (d *Data) Tweets() ([]Tweet, error) {
 
 // EachTweet calls fn for each tweet.
 func (d *Data) EachTweet(fn func(Tweet) error) error {
-	r, err := d.readData("tweets")
+	r, err := d.readTweets()
 	if err != nil {
 		return err
 	}

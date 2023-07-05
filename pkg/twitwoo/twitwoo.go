@@ -1,7 +1,6 @@
 package twitwoo
 
 import (
-	"bufio"
 	"fmt"
 
 	"github.com/spf13/afero"
@@ -19,32 +18,15 @@ func New(fs afero.Fs) *Data {
 	}
 }
 
-// dataFile wraps a file and a bufio.Reader and skips past the JS preamble in the file.
-type dataFile struct {
-	f afero.File
-	*bufio.Reader
-}
-
-func (df *dataFile) Close() error {
-	return df.f.Close()
-}
-
-func (d *Data) readData(fn string) (*dataFile, error) {
+func (d *Data) readData(fn, preamble string) (afero.File, error) {
 	f, err := d.fs.Open(fmt.Sprintf("data/%s.js", fn))
 	if err != nil {
 		return nil, err
 	}
 
-	r := bufio.NewReader(f)
-	for {
-		b, err := r.ReadByte()
-		if err != nil {
-			break
-		}
-		if b == '=' {
-			break
-		}
+	if err = SkipPreamble(preamble, f); err != nil {
+		return nil, err
 	}
 
-	return &dataFile{f: f, Reader: r}, nil
+	return f, nil
 }
