@@ -13,7 +13,11 @@ var extractCmd = &cobra.Command{
 }
 
 func init() {
-	extractCmd.AddCommand(manifestCmd, tweetsCmd)
+	extractCmd.AddCommand(
+		manifestCmd,
+		tweetsCmd,
+		acipCmd,
+	)
 }
 
 // Command returns the extract command.

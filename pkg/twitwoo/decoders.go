@@ -1,6 +1,7 @@
 package twitwoo
 
 import (
+	"net"
 	"strconv"
 	"time"
 	"unsafe"
@@ -30,56 +31,22 @@ func stringToTime(op, layout string) jsoniter.DecoderFunc {
 	}
 }
 
+func stringToIP(op string) jsoniter.DecoderFunc {
+	return func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+		ip := net.ParseIP(iter.ReadString())
+		if ip == nil {
+			iter.ReportError(op, "invalid IP")
+			return
+		}
+
+		*((*net.IP)(ptr)) = ip
+	}
+}
+
 func init() {
-	// Manifest
-	jsoniter.RegisterFieldDecoderFunc(
-		"twitwoo.UserInfo",
-		"AccountID",
-		stringToInt64("decode account id"),
-	)
-
-	jsoniter.RegisterFieldDecoderFunc(
-		"twitwoo.ArchiveInfo",
-		"SizeBytes",
-		stringToInt64("decode size bytes"),
-	)
-
-	jsoniter.RegisterFieldDecoderFunc(
-		"twitwoo.ArchiveInfo",
-		"MaxPartSizeBytes",
-		stringToInt64("decode max part size bytes"),
-	)
-
-	jsoniter.RegisterFieldDecoderFunc(
-		"twitwoo.ArchiveInfo",
-		"GenerationDate",
-		stringToTime("decode generation date", time.RFC3339),
-	)
-
-	jsoniter.RegisterFieldDecoderFunc(
-		"twitwoo.DataFile",
-		"Count",
-		stringToInt64("decode count"),
-	)
-
-	// Tweets
-	jsoniter.RegisterFieldDecoderFunc(
-		"twitwoo.Tweet",
-		"FavoriteCount",
-		stringToInt64("decode favourite count"),
-	)
-
-	jsoniter.RegisterFieldDecoderFunc(
-		"twitwoo.Tweet",
-		"RetweetCount",
-		stringToInt64("decode retweet count"),
-	)
-
-	jsoniter.RegisterFieldDecoderFunc(
-		"twitwoo.Tweet",
-		"CreatedAt",
-		stringToTime("decode created at", time.RubyDate),
-	)
+	registerManifestDecoders()
+	registerTweetDecoders()
+	registerAccountCreationIPDecoders()
 }
 
 type decoder interface {

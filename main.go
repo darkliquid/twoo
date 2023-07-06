@@ -1,7 +1,14 @@
 package main
 
-import "github.com/darkliquid/twoo/cmd"
+import (
+	"os"
+
+	"github.com/darkliquid/twoo/cmd"
+)
 
 func main() {
-	cmd.Execute()
+	err := cmd.Execute()
+	if err != nil {
+		os.Exit(1)
+	}
 }

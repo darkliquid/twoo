@@ -8,6 +8,26 @@ import (
 	"github.com/spf13/afero"
 )
 
+func registerTweetDecoders() {
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.Tweet",
+		"FavoriteCount",
+		stringToInt64("decode favourite count"),
+	)
+
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.Tweet",
+		"RetweetCount",
+		stringToInt64("decode retweet count"),
+	)
+
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.Tweet",
+		"CreatedAt",
+		stringToTime("decode created at", time.RubyDate),
+	)
+}
+
 type entities struct {
 	Hashtags []struct {
 		Text string `json:"text"`

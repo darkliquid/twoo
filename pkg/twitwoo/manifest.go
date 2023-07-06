@@ -7,6 +7,38 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
+func registerManifestDecoders() {
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.UserInfo",
+		"AccountID",
+		stringToInt64("decode account id"),
+	)
+
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.ArchiveInfo",
+		"SizeBytes",
+		stringToInt64("decode size bytes"),
+	)
+
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.ArchiveInfo",
+		"MaxPartSizeBytes",
+		stringToInt64("decode max part size bytes"),
+	)
+
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.ArchiveInfo",
+		"GenerationDate",
+		stringToTime("decode generation date", time.RFC3339),
+	)
+
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.DataFile",
+		"Count",
+		stringToInt64("decode count"),
+	)
+}
+
 // UserInfo is the structure of the user info section of the manifest.json file.
 type UserInfo struct {
 	UserName    string `json:"userName"`
