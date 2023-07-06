@@ -28,8 +28,8 @@ func TestEachTweet(t *testing.T) {
 	fs := afero.NewBasePathFs(afero.NewOsFs(), "./testdata")
 	data := twitwoo.New(fs)
 
-	var tw []twitwoo.Tweet
-	err := data.EachTweet(func(t twitwoo.Tweet) error {
+	var tw []*twitwoo.Tweet
+	err := data.EachTweet(func(t *twitwoo.Tweet) error {
 		tw = append(tw, t)
 		return nil
 	})

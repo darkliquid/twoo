@@ -52,7 +52,3 @@ func init() {
 type decoder interface {
 	decode(jsoniter.Any)
 }
-
-func decode[T decoder](el jsoniter.Any, dest T) {
-	dest.decode(el)
-}

@@ -1,11 +1,9 @@
 package twitwoo
 
 import (
-	"io"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
-	"github.com/spf13/afero"
 )
 
 func registerTweetDecoders() {
@@ -52,6 +50,7 @@ type Tweet struct {
 }
 
 func (t *Tweet) decode(el jsoniter.Any) {
+	el = el.Get("tweet")
 	el.ToVal(t)
 
 	var e entities
@@ -74,63 +73,20 @@ func (t *Tweet) decode(el jsoniter.Any) {
 	}
 }
 
-func (d *Data) readTweets() (io.ReadCloser, int64, error) {
-	m, err := d.Manifest()
-	if err != nil {
-		return nil, 0, err
-	}
-
-	files := make([]io.Reader, len(m.DataTypes.Tweets.Files))
-	count := int64(0)
-	for i, df := range m.DataTypes.Tweets.Files {
-		df := df
-		var r afero.File
-		r, err = d.readDataFile(&df)
-		if err != nil {
-			return nil, 0, err
-		}
-		files[i] = r
-		count += df.Count
-	}
-
-	return newMultiReadCloser(files...), count, nil
-}
-
 // Tweets returns a slice of tweets.
-func (d *Data) Tweets() ([]Tweet, error) {
-	r, count, err := d.readTweets()
+func (d *Data) Tweets() ([]*Tweet, error) {
+	m, err := d.Manifest()
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
-
-	tweets := make([]Tweet, 0, count)
-	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, parseBufSize)
-	for iter.ReadArray() {
-		var tweet Tweet
-		decode(iter.ReadAny().Get("tweet"), &tweet)
-		tweets = append(tweets, tweet)
-	}
-
-	return tweets, nil
+	return All[*Tweet](d, m.DataTypes.Tweets)
 }
 
 // EachTweet calls fn for each tweet.
-func (d *Data) EachTweet(fn func(Tweet) error) error {
-	r, _, err := d.readTweets()
+func (d *Data) EachTweet(fn func(*Tweet) error) error {
+	m, err := d.Manifest()
 	if err != nil {
 		return err
 	}
-	defer r.Close()
-
-	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, parseBufSize)
-	for iter.ReadArray() {
-		var tweet Tweet
-		decode(iter.ReadAny().Get("tweet"), &tweet)
-		if err = fn(tweet); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return Each[*Tweet](d, m.DataTypes.Tweets, fn)
 }

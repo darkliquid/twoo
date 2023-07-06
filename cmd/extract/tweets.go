@@ -33,7 +33,7 @@ var tweetsCmd = &cobra.Command{
 		}
 
 		data := twitwoo.New(fs)
-		return data.EachTweet(func(t twitwoo.Tweet) error {
+		return data.EachTweet(func(t *twitwoo.Tweet) error {
 			return tmpl.Execute(os.Stdout, t)
 		})
 	},

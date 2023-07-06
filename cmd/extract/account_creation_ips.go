@@ -33,7 +33,7 @@ var acipCmd = &cobra.Command{
 		}
 
 		data := twitwoo.New(fs)
-		return data.EachAccountCreationIP(func(acip twitwoo.AccountCreationIP) error {
+		return data.EachAccountCreationIP(func(acip *twitwoo.AccountCreationIP) error {
 			return tmpl.Execute(os.Stdout, acip)
 		})
 	},
