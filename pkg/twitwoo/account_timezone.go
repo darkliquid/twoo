@@ -5,19 +5,17 @@ import (
 )
 
 func registerAccountTimezoneDecoders() {
-    /*
-    // Example custom field decoder
 	jsoniter.RegisterFieldDecoderFunc(
 		"twitwoo.AccountTimezone",
-		"FieldName",
-		stringToInt64("decode field name"),
+		"AccountID",
+		stringToInt64("decode account id"),
 	)
-    */
 }
 
 // AccountTimezone is the structure of the data/account-timezone.js file.
 type AccountTimezone struct {
-    // Fields go here
+	Timezone  string `json:"timeZone"`
+	AccountID int64  `json:"accountId"`
 }
 
 func (a *AccountTimezone) decode(el jsoniter.Any) {

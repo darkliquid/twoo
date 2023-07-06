@@ -1,23 +1,33 @@
 package twitwoo
 
 import (
+	"time"
+
 	jsoniter "github.com/json-iterator/go"
 )
 
 func registerAccountDecoders() {
-    /*
-    // Example custom field decoder
 	jsoniter.RegisterFieldDecoderFunc(
 		"twitwoo.Account",
-		"FieldName",
-		stringToInt64("decode field name"),
+		"AccountID",
+		stringToInt64("decode account id"),
 	)
-    */
+
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.Account",
+		"CreatedAt",
+		stringToTime("decode created at", time.RFC3339),
+	)
 }
 
 // Account is the structure of the data/account.js file.
 type Account struct {
-    // Fields go here
+	CreatedAt   time.Time `json:"createdAt"`
+	Username    string    `json:"username"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"accountDisplayName"`
+	CreatedVia  string    `json:"createdVia"`
+	AccountID   int64     `json:"accountId"`
 }
 
 func (a *Account) decode(el jsoniter.Any) {
