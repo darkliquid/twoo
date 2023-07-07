@@ -19,9 +19,14 @@ func TestTweets(t *testing.T) {
 	require.Equal(t, "1541752634348019715", tw[27].ID)
 
 	require.Equal(t, []string{"dungeon23", "City23", "setting23", "finishit23"}, tw[7].Hashtags)
-	require.Equal(t, map[string]string{
-		"https://t.co/UeQo1oR1hd": "http://dice.camp/@darkliquid",
+	require.Equal(t, map[string]twitwoo.Link{
+		"https://t.co/UeQo1oR1hd": {
+			DisplayURL:  "dice.camp/@darkliquid",
+			ExpandedURL: "http://dice.camp/@darkliquid",
+		},
 	}, tw[7].URLMap)
+
+	require.Len(t, tw[11].Mentions, 12, "tweet: %#v", tw[11])
 }
 
 func TestEachTweet(t *testing.T) {
@@ -39,7 +44,10 @@ func TestEachTweet(t *testing.T) {
 	require.Equal(t, "1541752634348019715", tw[27].ID)
 
 	require.Equal(t, []string{"dungeon23", "City23", "setting23", "finishit23"}, tw[7].Hashtags)
-	require.Equal(t, map[string]string{
-		"https://t.co/UeQo1oR1hd": "http://dice.camp/@darkliquid",
+	require.Equal(t, map[string]twitwoo.Link{
+		"https://t.co/UeQo1oR1hd": {
+			DisplayURL:  "dice.camp/@darkliquid",
+			ExpandedURL: "http://dice.camp/@darkliquid",
+		},
 	}, tw[7].URLMap)
 }

@@ -100,7 +100,7 @@ var pageIndexHeaderTmpl = `<!DOCTYPE html>
 
 var pageIndexTweetTmpl = `
 	<article class="tweet">
-		{{ .FullText }}
+		<p>{{ fancy_tweet . }}</p>
 		<aside>
 			<details>
 				<summary>meta</summary>
@@ -153,7 +153,7 @@ func Page(data *twitwoo.Data, page, pageSize int64, w http.ResponseWriter) error
 
 	pageCount := totalTweets / pageSize
 
-	header := template.Must(template.New("header").Parse(pageIndexHeaderTmpl))
+	header := template.Must(template.New("header").Funcs(funcMap).Parse(pageIndexHeaderTmpl))
 
 	profiles, err := data.Profiles()
 	if err != nil {
@@ -185,7 +185,7 @@ func Page(data *twitwoo.Data, page, pageSize int64, w http.ResponseWriter) error
 		return err
 	}
 
-	tweet := template.Must(template.New("tweet").Parse(pageIndexTweetTmpl))
+	tweet := template.Must(template.New("tweet").Funcs(funcMap).Parse(pageIndexTweetTmpl))
 
 	// TODO:This is an incredibly naive implementation, but for live serving
 	// is probably fine. Maybe find some way to index deeper into the json data
@@ -203,7 +203,7 @@ func Page(data *twitwoo.Data, page, pageSize int64, w http.ResponseWriter) error
 		return err
 	}
 
-	footer := template.Must(template.New("footer").Parse(pageIndexFooterTmpl))
+	footer := template.Must(template.New("footer").Funcs(funcMap).Parse(pageIndexFooterTmpl))
 	return footer.Execute(w, struct {
 		Profile    *twitwoo.Profile
 		UserInfo   twitwoo.UserInfo

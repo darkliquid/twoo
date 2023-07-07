@@ -24,52 +24,72 @@ func registerTweetDecoders() {
 		"CreatedAt",
 		stringToTime("decode created at", time.RubyDate),
 	)
+
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.Mention",
+		"ID",
+		stringToInt64("decode id"),
+	)
 }
 
-type entities struct {
-	Hashtags []struct {
-		Text string `json:"text"`
-	} `json:"hashtags"`
-	URLs []struct {
-		URL         string `json:"url"`
-		ExpandedURL string `json:"expanded_url"`
-	} `json:"urls"`
+// Mention represents a mention of a user in a tweet.
+type Mention struct {
+	Name       string `json:"name"`
+	ScreenName string `json:"screen_name"`
+	ID         int64  `json:"id"`
+}
+
+// Link represents a link in a tweet.
+type Link struct {
+	DisplayURL  string `json:"display_url"`
+	ExpandedURL string `json:"expanded_url"`
 }
 
 // Tweet represents a single tweet.
 type Tweet struct {
-	CreatedAt          time.Time         `json:"created_at"`
-	URLMap             map[string]string `json:"urlmap"`
-	ID                 string            `json:"id_str"`
-	InReplyToUserID    string            `json:"in_reply_to_user_id_str"`
-	InReplayToStatusID string            `json:"in_reply_to_status_id_str"`
-	FullText           string            `json:"full_text"`
-	Hashtags           []string          `json:"hashtags"`
-	RetweetCount       int64             `json:"retweet_count"`
-	FavoriteCount      int64             `json:"favorite_count"`
+	CreatedAt          time.Time       `json:"created_at"`
+	URLMap             map[string]Link `json:"urlmap"`
+	ID                 string          `json:"id_str"`
+	InReplyToUserID    string          `json:"in_reply_to_user_id_str"`
+	InReplayToStatusID string          `json:"in_reply_to_status_id_str"`
+	FullText           string          `json:"full_text"`
+	Hashtags           []string        `json:"hashtags"`
+	Mentions           []Mention       `json:"mentions"`
+	RetweetCount       int64           `json:"retweet_count"`
+	FavoriteCount      int64           `json:"favorite_count"`
 }
 
 func (t *Tweet) decode(el jsoniter.Any) {
 	el = el.Get("tweet")
 	el.ToVal(t)
 
-	var e entities
-	el.Get("entities").ToVal(&e)
+	el.Get("entities", "user_mentions").ToVal(&t.Mentions)
 
-	// extract hashtags to something useful
-	if len(e.Hashtags) > 0 {
-		t.Hashtags = make([]string, 0, len(e.Hashtags))
+	var hashtags []struct {
+		Text string `json:"text"`
 	}
-	for _, v := range e.Hashtags {
+	el.Get("entities", "hashtags").ToVal(&hashtags)
+
+	// extract hashtags to something useful.
+	if len(hashtags) > 0 {
+		t.Hashtags = make([]string, 0, len(hashtags))
+	}
+	for _, v := range hashtags {
 		t.Hashtags = append(t.Hashtags, v.Text)
 	}
 
-	// extract urls into a map of url -> expanded url
-	if len(e.URLs) > 0 {
-		t.URLMap = make(map[string]string, len(e.URLs))
+	var urls []struct {
+		URL string `json:"url"`
+		Link
 	}
-	for _, v := range e.URLs {
-		t.URLMap[v.URL] = v.ExpandedURL
+	el.Get("entities", "urls").ToVal(&urls)
+
+	// extract urls into a map of url -> expanded url.
+	if len(urls) > 0 {
+		t.URLMap = make(map[string]Link, len(urls))
+	}
+	for _, v := range urls {
+		t.URLMap[v.URL] = v.Link
 	}
 }
 
