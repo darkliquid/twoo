@@ -17,6 +17,7 @@ func init() {
 		manifestCmd,
 		tweetsCmd,
 		acipCmd,
+		profileCmd,
 	)
 }
 

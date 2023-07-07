@@ -4,20 +4,15 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-func registerProfileDecoders() {
-    /*
-    // Example custom field decoder
-	jsoniter.RegisterFieldDecoderFunc(
-		"twitwoo.Profile",
-		"FieldName",
-		stringToInt64("decode field name"),
-	)
-    */
-}
-
 // Profile is the structure of the data/profile.js file.
 type Profile struct {
-    // Fields go here
+	Description struct {
+		Bio      string `json:"bio"`
+		Website  string `json:"website"`
+		Location string `json:"location"`
+	} `json:"description"`
+	Avatar string `json:"avatarMediaUrl"`
+	Header string `json:"headerMediaUrl"`
 }
 
 func (p *Profile) decode(el jsoniter.Any) {

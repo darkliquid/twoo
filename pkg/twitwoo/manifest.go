@@ -91,21 +91,17 @@ type Manifest struct {
 		CommunityNoteRating             DataType `json:"communityNoteRating"`
 		CommunityNoteTombstone          DataType `json:"communityNoteTombstone"`
 		CommunityTweet                  DataType `json:"communityTweet"`
-		CommunityTweetMedia             DataType `json:"communityTweetMedia"`
 		ConnectedApplication            DataType `json:"connectedApplication"`
 		Contact                         DataType `json:"contact"`
 		DeletedNoteTweet                DataType `json:"deletedNoteTweet"`
 		DeletedTweetHeaders             DataType `json:"deletedTweetHeaders"`
 		DeletedTweets                   DataType `json:"deletedTweets"`
-		DeletedTweetsMedia              DataType `json:"deletedTweetsMedia"`
 		DeviceToken                     DataType `json:"deviceToken"`
 		DirectMessageGroupHeaders       DataType `json:"directMessageGroupHeaders"`
 		DirectMessageHeaders            DataType `json:"directMessageHeaders"`
 		DirectMessageMute               DataType `json:"directMessageMute"`
 		DirectMessages                  DataType `json:"directMessages"`
 		DirectMessagesGroup             DataType `json:"directMessagesGroup"`
-		DirectMessagesGroupMedia        DataType `json:"directMessagesGroupMedia"`
-		DirectMessagesMedia             DataType `json:"directMessagesMedia"`
 		EmailAddressChange              DataType `json:"emailAddressChange"`
 		Follower                        DataType `json:"follower"`
 		Following                       DataType `json:"following"`
@@ -116,8 +112,6 @@ type Manifest struct {
 		ListsMember                     DataType `json:"listsMember"`
 		ListsSubscribed                 DataType `json:"listsSubscribed"`
 		Moment                          DataType `json:"moment"`
-		MomentsMedia                    DataType `json:"momentsMedia"`
-		MomentsTweetsMedia              DataType `json:"momentsTweetsMedia"`
 		Mute                            DataType `json:"mute"`
 		NIDevices                       DataType `json:"niDevices"`
 		NoteTweet                       DataType `json:"noteTweet"`
@@ -134,7 +128,6 @@ type Manifest struct {
 		ProductSet                      DataType `json:"productSet"`
 		ProfessionalData                DataType `json:"professionalData"`
 		Profile                         DataType `json:"profile"`
-		ProfileMedia                    DataType `json:"profileMedia"`
 		ProtectedHistory                DataType `json:"protectedHistory"`
 		ReplyPrompt                     DataType `json:"replyPrompt"`
 		SavedSearch                     DataType `json:"savedSearch"`
@@ -147,14 +140,11 @@ type Manifest struct {
 		TweetHeaders                    DataType `json:"tweetHeaders"`
 		TweetDeck                       DataType `json:"tweetdeck"`
 		Tweets                          DataType `json:"tweets"`
-		TweetsMedia                     DataType `json:"tweetsMedia"`
 		TwitterArticle                  DataType `json:"twitterArticle"`
-		TwitterArticleMedia             DataType `json:"twitterArticleMedia"`
 		TwitterArticleMetadata          DataType `json:"twitterArticleMetadata"`
 		TwitterCircle                   DataType `json:"twitterCircle"`
 		TwitterCircleMember             DataType `json:"twitterCircleMember"`
 		TwitterCircleTweet              DataType `json:"twitterCircleTweet"`
-		TwitterCircleTweetMedia         DataType `json:"twitterCircleTweetMedia"`
 		TwitterShop                     DataType `json:"twitterShop"`
 		UserLinkClicks                  DataType `json:"userLinkClicks"`
 		Verified                        DataType `json:"verified"`
