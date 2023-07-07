@@ -1,6 +1,9 @@
 package twitwoo
 
 import (
+	"fmt"
+	"path"
+	"strings"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -30,6 +33,12 @@ func registerTweetDecoders() {
 		"ID",
 		stringToInt64("decode id"),
 	)
+
+	jsoniter.RegisterFieldDecoderFunc(
+		"twitwoo.Media",
+		"ID",
+		stringToInt64("decode id"),
+	)
 }
 
 // Mention represents a mention of a user in a tweet.
@@ -45,6 +54,27 @@ type Link struct {
 	ExpandedURL string `json:"expanded_url"`
 }
 
+// Media represents a media item in a tweet.
+type Media struct {
+	ExpandedURL string `json:"expanded_url"`
+	URL         string `json:"url"`
+	MediaURL    string `json:"media_url"`
+	Type        string `json:"type"`
+	DisplayURL  string `json:"display_url"`
+	ID          int64  `json:"id"`
+}
+
+func (m *Media) File() string {
+	parts := strings.Split(m.ExpandedURL, "/status/")
+	if len(parts) != 2 {
+		return ""
+	}
+
+	pfx := strings.Split(parts[1], "/")[0]
+	sfx := path.Base(m.MediaURL)
+	return path.Join("data/tweets_media", fmt.Sprintf("%s-%s", pfx, sfx))
+}
+
 // Tweet represents a single tweet.
 type Tweet struct {
 	CreatedAt          time.Time       `json:"created_at"`
@@ -55,6 +85,7 @@ type Tweet struct {
 	FullText           string          `json:"full_text"`
 	Hashtags           []string        `json:"hashtags"`
 	Mentions           []Mention       `json:"mentions"`
+	Media              []Media         `json:"media"`
 	RetweetCount       int64           `json:"retweet_count"`
 	FavoriteCount      int64           `json:"favorite_count"`
 }
@@ -63,7 +94,14 @@ func (t *Tweet) decode(el jsoniter.Any) {
 	el = el.Get("tweet")
 	el.ToVal(t)
 
-	el.Get("entities", "user_mentions").ToVal(&t.Mentions)
+	media := el.Get("entities", "media")
+	if media.Size() > 0 {
+		media.ToVal(&t.Media)
+	}
+	mentions := el.Get("entities", "user_mentions")
+	if mentions.Size() > 0 {
+		mentions.ToVal(&t.Mentions)
+	}
 
 	var hashtags []struct {
 		Text string `json:"text"`
