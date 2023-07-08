@@ -26,7 +26,7 @@ func Serve(bind, cachedir string, srcfs afero.Fs) error {
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.StripSlashes)
 	if cachedir != "" {
-		r.Use(cache)
+		r.Use(cache(cachedir))
 	}
 
 	data := twitwoo.New(srcfs)

@@ -99,7 +99,11 @@ var pageIndexHeaderTmpl = `<!DOCTYPE html>
 	{{ if gt .PageCount 0 }}
 	<nav class="pagination">
 	{{ if gt .PrevPage 0 }}
-	<a href="/page{{ .PrevPage }}">Previous</a>
+	{{ if eq .PrevPage 1 }}
+	<a href="/">Previous</a>
+	{{ else }}
+	<a href="/page/{{ .PrevPage }}">Previous</a>
+	{{ end }}
 	{{ end }}
 	{{ if lt .NextPage .PageCount }}
 	<a href="/page/{{ .NextPage }}">Next</a>
@@ -130,7 +134,11 @@ var pageIndexFooterTmpl = `
 	{{ if gt .PageCount 0 }}
 	<nav class="pagination">
 	{{ if gt .PrevPage 0 }}
+	{{ if eq .PrevPage 1 }}
+	<a href="/">Previous</a>
+	{{ else }}
 	<a href="/page/{{ .PrevPage }}">Previous</a>
+	{{ end }}
 	{{ end }}
 	{{ if lt .NextPage .PageCount }}
 	<a href="/page/{{ .NextPage }}">Next</a>
