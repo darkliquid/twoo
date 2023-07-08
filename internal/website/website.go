@@ -3,7 +3,7 @@ package website
 import (
 	"errors"
 	"html/template"
-	"net/http"
+	"io"
 
 	"github.com/darkliquid/twoo/pkg/twitwoo"
 )
@@ -12,7 +12,7 @@ var pageIndexHeaderTmpl = `<!DOCTYPE html>
 	<html>
 	<head>
 	<meta charset="utf-8">
-	<title>@{{ .UserInfo.UserName }} - {{ .Page }}/{{ .PageCount }}</title>
+	<title>@{{ .UserInfo.UserName }}{{ if gt .PageCount 0 }} - {{ .Page }}/{{ .PageCount }}{{ end }}</title>
 	<link rel="stylesheet" href="http://markdowncss.github.io/retro/css/retro.css">
 	<style>
 		header {
@@ -59,6 +59,15 @@ var pageIndexHeaderTmpl = `<!DOCTYPE html>
 			text-decoration: none;
 		}
 
+		main article aside details time a {
+			color: #333 !important;
+			text-decoration: none;
+		}
+
+		main article aside details time a:hover {
+			text-decoration: underline;
+		}
+
 		footer {
 			text-align: center;
 		}
@@ -87,14 +96,16 @@ var pageIndexHeaderTmpl = `<!DOCTYPE html>
 			</details>
 		</aside>
 	</header>
+	{{ if gt .PageCount 0 }}
 	<nav class="pagination">
 	{{ if gt .PrevPage 0 }}
-	<a href="?page={{ .PrevPage }}&page_size={{ .PageSize }}">Previous</a>
+	<a href="/page{{ .PrevPage }}">Previous</a>
 	{{ end }}
 	{{ if lt .NextPage .PageCount }}
-	<a href="?page={{ .NextPage }}&page_size={{ .PageSize }}">Next</a>
+	<a href="/page/{{ .NextPage }}">Next</a>
 	{{ end }}
 	</nav>
+	{{ end }}
 	<main>
 `
 
@@ -107,7 +118,7 @@ var pageIndexTweetTmpl = `
 				<p>
 					<abbr title="retweets">♻</abbr>  {{ .RetweetCount }} |
 					<abbr title="likes">♥</abbr> {{ .FavoriteCount }} |
-					<abbr title="posted at">⏲</abbr> <time datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">{{ .CreatedAt.Format "Jan 02, 2006 15:04:05" }}</time>
+					<abbr title="posted at">⏲</abbr> <time datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}"><a href="/tweet/{{ .ID }}">{{ .CreatedAt.Format "Jan 02, 2006 15:04:05" }}</a></time>
 				</p>
 			</details>
 		</aside>
@@ -116,14 +127,16 @@ var pageIndexTweetTmpl = `
 
 var pageIndexFooterTmpl = `
 	</main>
+	{{ if gt .PageCount 0 }}
 	<nav class="pagination">
 	{{ if gt .PrevPage 0 }}
-	<a href="?page={{ .PrevPage }}&page_size={{ .PageSize }}">Previous</a>
+	<a href="/page/{{ .PrevPage }}">Previous</a>
 	{{ end }}
 	{{ if lt .NextPage .PageCount }}
-	<a href="?page={{ .NextPage }}&page_size={{ .PageSize }}">Next</a>
+	<a href="/page/{{ .NextPage }}">Next</a>
 	{{ end }}
 	</nav>
+	{{ end }}
 	<footer>
 		<p>rendered with 🦉<a href="https://github.com/darkliquid/twoo">twoo</a></p>
 	</footer>
@@ -131,8 +144,19 @@ var pageIndexFooterTmpl = `
 	</html>
 `
 
-// Page returns a page of data.
-func Page(data *twitwoo.Data, page, pageSize int64, w http.ResponseWriter) error {
+type pageData struct {
+	Profile    *twitwoo.Profile
+	UserInfo   twitwoo.UserInfo
+	Page       int64
+	PageSize   int64
+	PrevPage   int64
+	NextPage   int64
+	PageCount  int64
+	TweetCount int64
+}
+
+// Index write a page of multiple items.
+func Index(data *twitwoo.Data, page, pageSize int64, w io.Writer) error {
 	if page < 1 {
 		page = 1
 	}
@@ -153,6 +177,39 @@ func Page(data *twitwoo.Data, page, pageSize int64, w http.ResponseWriter) error
 
 	pageCount := totalTweets / pageSize
 
+	i := int64(0)
+	return render(data, pageData{
+		Page:       page,
+		PageSize:   pageSize,
+		PageCount:  pageCount,
+		TweetCount: totalTweets,
+		PrevPage:   page - 1,
+		NextPage:   page + 1,
+	}, func(t *twitwoo.Tweet) *twitwoo.Tweet {
+		i++
+		if i >= (page-1)*pageSize && i < page*pageSize {
+			return t
+		}
+		return nil
+	}, w)
+}
+
+// Page writes a single item page.
+func Page(data *twitwoo.Data, id int64, w io.Writer) error {
+	return render(data, pageData{}, func(t *twitwoo.Tweet) *twitwoo.Tweet {
+		if t.ID == id {
+			return t
+		}
+		return nil
+	}, w)
+}
+
+func render(data *twitwoo.Data, pd pageData, fn func(*twitwoo.Tweet) *twitwoo.Tweet, w io.Writer) error {
+	m, err := data.Manifest()
+	if err != nil {
+		return err
+	}
+
 	header := template.Must(template.New("header").Funcs(funcMap).Parse(pageIndexHeaderTmpl))
 
 	profiles, err := data.Profiles()
@@ -163,25 +220,10 @@ func Page(data *twitwoo.Data, page, pageSize int64, w http.ResponseWriter) error
 		return errors.New("no profiles found")
 	}
 
-	if err := header.Execute(w, struct {
-		Profile    *twitwoo.Profile
-		UserInfo   twitwoo.UserInfo
-		Page       int64
-		PageSize   int64
-		PrevPage   int64
-		NextPage   int64
-		PageCount  int64
-		TweetCount int64
-	}{
-		UserInfo:   m.UserInfo,
-		Profile:    profiles[0],
-		Page:       page,
-		PageSize:   pageSize,
-		PageCount:  pageCount,
-		TweetCount: totalTweets,
-		PrevPage:   page - 1,
-		NextPage:   page + 1,
-	}); err != nil {
+	pd.UserInfo = m.UserInfo
+	pd.Profile = profiles[0]
+
+	if err := header.Execute(w, pd); err != nil {
 		return err
 	}
 
@@ -191,10 +233,9 @@ func Page(data *twitwoo.Data, page, pageSize int64, w http.ResponseWriter) error
 	// is probably fine. Maybe find some way to index deeper into the json data
 	// for tweets to skip having to read and parse everything before the page you
 	// actually want to display.
-	i := int64(0)
 	if err := data.EachTweet(func(t *twitwoo.Tweet) error {
-		i++
-		if i >= (page-1)*pageSize && i < page*pageSize {
+		t = fn(t)
+		if t != nil {
 			return tweet.Execute(w, t)
 		}
 
@@ -204,23 +245,8 @@ func Page(data *twitwoo.Data, page, pageSize int64, w http.ResponseWriter) error
 	}
 
 	footer := template.Must(template.New("footer").Funcs(funcMap).Parse(pageIndexFooterTmpl))
-	return footer.Execute(w, struct {
-		Profile    *twitwoo.Profile
-		UserInfo   twitwoo.UserInfo
-		Page       int64
-		PageSize   int64
-		PrevPage   int64
-		NextPage   int64
-		PageCount  int64
-		TweetCount int64
-	}{
-		UserInfo:   m.UserInfo,
-		Profile:    profiles[0],
-		Page:       page,
-		PageSize:   pageSize,
-		PageCount:  pageCount,
-		TweetCount: totalTweets,
-		PrevPage:   page - 1,
-		NextPage:   page + 1,
+	return footer.Execute(w, pageData{
+		UserInfo: m.UserInfo,
+		Profile:  profiles[0],
 	})
 }
