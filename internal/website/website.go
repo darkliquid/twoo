@@ -15,8 +15,29 @@ var pageIndexHeaderTmpl = `<!DOCTYPE html>
 	<title>@{{ .UserInfo.UserName }}{{ if gt .PageCount 0 }} - {{ .Page }}/{{ .PageCount }}{{ end }}</title>
 	<link rel="stylesheet" href="http://markdowncss.github.io/retro/css/retro.css">
 	<style>
+		html {
+			{{ $profile_header_url := profile_header_url .Profile }}
+			{{ with $profile_header_url }}
+			background-image: url({{ . }});
+			{{ end }}
+			background-repeat: no-repeat;
+		}
+
+		body {
+			background-color: #222222dd;
+		}
+
 		header {
 			margin-bottom: 1em;
+		}
+
+		header aside figure {
+			display: flex;
+			align-items: flex-start;
+		}
+
+		header aside figure figcaption {
+			margin-left: 1em;
 		}
 
 		nav a:first-child {
@@ -74,26 +95,37 @@ var pageIndexHeaderTmpl = `<!DOCTYPE html>
 	</style>
 	</head>
 	<body>
-	<header id="profile-header">
-		<h1>{{ .UserInfo.DisplayName}}</h1>
-		<h2>@{{ .UserInfo.UserName }}</h2>
+	<header>
+		<h1>
+			@{{ .UserInfo.UserName }}
+		</h1>
 		<aside>
-			<details>
-				<summary>Bio</summary>
-				<p>{{ .Profile.Description.Bio }}</p>
-			</details>
-			<details>
-				<summary>Website</summary>
-				<p>
-					<a href="{{ .Profile.Description.Website }}">
-						{{ .Profile.Description.Website }}
-					</a>
-				</p>
-			</details>
-			<details>
-				<summary>Location</summary>
-				<p>{{ .Profile.Description.Location }}</p>
-			</details>
+			<figure>
+				{{ $profile_avatar_url := profile_avatar_url .Profile }}
+				{{ with $profile_avatar_url }}
+				<img src="{{ . }}" alt="{{ $.UserInfo.UserName }} Avatar">
+				{{ end }}
+
+				<figcaption>
+					<details>
+						<summary>Bio</summary>
+						<strong>{{ .UserInfo.DisplayName }}</strong>
+						<p>{{ .Profile.Description.Bio }}</p>
+					</details>
+					<details>
+						<summary>Website</summary>
+						<p>
+							<a href="{{ .Profile.Description.Website }}">
+								{{ .Profile.Description.Website }}
+							</a>
+						</p>
+					</details>
+					<details>
+						<summary>Location</summary>
+						<p>{{ .Profile.Description.Location }}</p>
+					</details>
+				</figcaption>
+			</figure>
 		</aside>
 	</header>
 	{{ if gt .PageCount 0 }}
@@ -217,6 +249,8 @@ func render(data *twitwoo.Data, pd pageData, fn func(*twitwoo.Tweet) *twitwoo.Tw
 	if err != nil {
 		return err
 	}
+
+	funcMap := FuncMap(m)
 
 	header := template.Must(template.New("header").Funcs(funcMap).Parse(pageIndexHeaderTmpl))
 
