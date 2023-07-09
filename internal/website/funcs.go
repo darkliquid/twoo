@@ -12,7 +12,21 @@ import (
 
 var urlRE = regexp.MustCompile(`(?i)(^|[^>"])(http|https|ftp):\/\/(\S+)([^<"]|$)`)
 
-const linkSubstitution = " <a href=\"$2://$3\">$2://$3</a> "
+const (
+	linkSubstitution = " <a href=\"$2://$3\">$2://$3</a> "
+)
+
+func hashtagLink(tag string) string {
+	return "<a href=\"https://twitter.com/hashtag/" + tag + "\">#" + tag + "</a>"
+}
+
+func expandedLink(link twitwoo.Link) string {
+	return "<a href=\"" + link.ExpandedURL + "\">" + link.DisplayURL + "</a>"
+}
+
+func mentionLink(mention twitwoo.Mention) string {
+	return "<a href=\"https://twitter.com/" + mention.ScreenName + "\">@" + mention.ScreenName + "</a>"
+}
 
 func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 	return template.FuncMap{
@@ -21,15 +35,15 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 			text = strings.ReplaceAll(text, "\n", "<br>")
 
 			for _, tag := range t.Hashtags {
-				text = strings.ReplaceAll(text, "#"+tag, "<a href=\"https://twitter.com/hashtag/"+tag+"\">#"+tag+"</a>")
+				text = strings.ReplaceAll(text, "#"+tag, hashtagLink(tag))
 			}
 
 			for url, link := range t.URLMap {
-				text = strings.ReplaceAll(text, url, "<a href=\""+link.ExpandedURL+"\">"+link.DisplayURL+"</a>")
+				text = strings.ReplaceAll(text, url, expandedLink(link))
 			}
 
 			for _, mention := range t.Mentions {
-				text = strings.ReplaceAll(text, "@"+mention.ScreenName, "<a href=\"https://twitter.com/"+mention.ScreenName+"\">@"+mention.ScreenName+"</a>")
+				text = strings.ReplaceAll(text, "@"+mention.ScreenName, mentionLink(mention))
 			}
 
 			text = urlRE.ReplaceAllString(text, linkSubstitution)
@@ -52,7 +66,7 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 				text += "</ul>"
 			}
 
-			return template.HTML(text)
+			return template.HTML(text) //nolint:gosec // input is trusted
 		},
 		"profile_header_url": func(p *twitwoo.Profile) string {
 			if p.Header == "" {

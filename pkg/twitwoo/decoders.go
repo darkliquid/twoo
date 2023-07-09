@@ -1,7 +1,6 @@
 package twitwoo
 
 import (
-	"net"
 	"strconv"
 	"time"
 	"unsafe"
@@ -28,18 +27,6 @@ func stringToTime(op, layout string) jsoniter.DecoderFunc {
 			iter.ReportError(op, err.Error())
 			return
 		}
-	}
-}
-
-func stringToIP(op string) jsoniter.DecoderFunc {
-	return func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-		ip := net.ParseIP(iter.ReadString())
-		if ip == nil {
-			iter.ReportError(op, "invalid IP")
-			return
-		}
-
-		*((*net.IP)(ptr)) = ip
 	}
 }
 

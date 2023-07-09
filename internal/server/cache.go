@@ -10,6 +10,10 @@ import (
 	"github.com/spf13/afero"
 )
 
+const (
+	cacheDirMode = 0755
+)
+
 func cache(cachedir string) func(http.Handler) http.Handler {
 	fs := afero.NewBasePathFs(afero.NewOsFs(), cachedir)
 	return func(next http.Handler) http.Handler {
@@ -20,14 +24,14 @@ func cache(cachedir string) func(http.Handler) http.Handler {
 			// Check if cached file exists and is not a directory
 			if fi, err := fs.Stat(name); err == nil && !fi.IsDir() {
 				w.WriteHeader(http.StatusOK)
-				f, err := fs.Open(name)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
+				f, ferr := fs.Open(name)
+				if ferr != nil {
+					http.Error(w, ferr.Error(), http.StatusInternalServerError)
 					return
 				}
-				defer f.Close() //nolint:errcheck // nothing we can do about this
+				defer f.Close()
 
-				io.Copy(w, f)
+				io.Copy(w, f) //nolint:errcheck // nothing we can do about this
 				return
 			}
 
@@ -35,13 +39,13 @@ func cache(cachedir string) func(http.Handler) http.Handler {
 			rec := httptest.NewRecorder()
 			next.ServeHTTP(rec, r)
 
-			result := rec.Result()
+			result := rec.Result() //nolint:bodyclose // this is a recorder
 			statusCode := result.StatusCode
 			value := rec.Body.Bytes()
 
 			// As long we get a successful response, cache it
 			if statusCode < http.StatusBadRequest {
-				if err := fs.MkdirAll(r.URL.Path, 0755); err != nil {
+				if err := fs.MkdirAll(r.URL.Path, cacheDirMode); err != nil {
 					writeResponse(w, result.Header, statusCode, value)
 					return
 				}
@@ -51,9 +55,9 @@ func cache(cachedir string) func(http.Handler) http.Handler {
 					writeResponse(w, result.Header, statusCode, value)
 					return
 				}
-				defer f.Close() //nolint:errcheck // nothing we can do about this
+				defer f.Close()
 
-				f.Write(value)
+				f.Write(value) //nolint:errcheck // nothing we can do about this
 			}
 			writeResponse(w, result.Header, statusCode, value)
 		})
@@ -65,5 +69,5 @@ func writeResponse(w http.ResponseWriter, h http.Header, statusCode int, body []
 		w.Header().Set(k, strings.Join(v, ","))
 	}
 	w.WriteHeader(statusCode)
-	w.Write(body)
+	w.Write(body) //nolint:errcheck // nothing we can do about this
 }

@@ -65,7 +65,7 @@ func Each[T Ptr[U], U any](d *Data, dt DataType, fn func(T) error) error {
 		item := T(new(U))
 		item.decode(iter.ReadAny())
 		if err = fn(item); err != nil {
-			if err == ErrBreak {
+			if errors.Is(err, ErrBreak) {
 				return nil
 			}
 			return err
@@ -92,7 +92,7 @@ func EachRaw(d *Data, dt DataType, fn func(map[string]any) error) error {
 		if iter.ReadObject() != "" {
 			iter.ReadAny().ToVal(&item)
 			if err = fn(item); err != nil {
-				if err == ErrBreak {
+				if errors.Is(err, ErrBreak) {
 					return nil
 				}
 				return err

@@ -17,6 +17,8 @@ import (
 	"github.com/darkliquid/twoo/pkg/twitwoo"
 )
 
+const timeout = 10 * time.Second
+
 // Serve listens on bind and serves a website generated from the data in data
 // or from static files in cachedir, over HTTP.
 func Serve(bind, cachedir string, srcfs afero.Fs) error {
@@ -38,7 +40,6 @@ func Serve(bind, cachedir string, srcfs afero.Fs) error {
 	ctx, cncl := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cncl()
 
-	timeout := 10 * time.Second
 	srv := &http.Server{
 		Addr:              bind,
 		Handler:           r,

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -96,22 +97,34 @@ var extractTypes = []string{
 	"verified",
 }
 
-// dig taken from sprig library: github.com/Masterminds/sprig
+// dig taken from sprig library: github.com/Masterminds/sprig.
 func dig(ps ...interface{}) (interface{}, error) {
-	if len(ps) < 3 {
-		panic("dig needs at least three arguments")
+	if len(ps) < 3 { //nolint:gomnd // documented below
+		return nil, errors.New("dig needs at least three arguments")
 	}
-	dict := ps[len(ps)-1].(map[string]interface{})
+	dict, ok := ps[len(ps)-1].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf(
+			"dig needs a map as its last argument, got %T",
+			ps[len(ps)-1],
+		)
+	}
 	def := ps[len(ps)-2]
-	ks := make([]string, len(ps)-2)
+	ks := make([]string, len(ps)-2) //nolint:gomnd // just stop it
 	for i := 0; i < len(ks); i++ {
-		ks[i] = ps[i].(string)
+		ks[i], ok = ps[i].(string)
+		if !ok {
+			return nil, fmt.Errorf(
+				"dig needs string arguments, got %T",
+				ps[i],
+			)
+		}
 	}
 
 	return digFromDict(dict, def, ks)
 }
 
-// digFromDict taken from sprig library: github.com/Masterminds/sprig
+// digFromDict taken from sprig library: github.com/Masterminds/sprig.
 func digFromDict(dict map[string]interface{}, d interface{}, ks []string) (interface{}, error) {
 	k, ns := ks[0], ks[1:]
 	step, has := dict[k]
@@ -124,15 +137,15 @@ func digFromDict(dict map[string]interface{}, d interface{}, ks []string) (inter
 	return digFromDict(step.(map[string]interface{}), d, ns)
 }
 
-// toPrettyJson taken from sprig library: github.com/Masterminds/sprig
-func toPrettyJson(v interface{}) string {
+// toPrettyJSON taken from sprig library: github.com/Masterminds/sprig.
+func toPrettyJSON(v interface{}) string {
 	output, _ := json.MarshalIndent(v, "", "  ")
 	return string(output)
 }
 
 var extractFuncMap = template.FuncMap{
 	"get":  dig,
-	"json": toPrettyJson,
+	"json": toPrettyJSON,
 }
 
 var extractFormat string

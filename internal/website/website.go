@@ -204,7 +204,12 @@ var pageIndexTweetTmpl = `
 				<p>
 					<abbr title="retweets">♻</abbr>  {{ .RetweetCount }} |
 					<abbr title="likes">♥</abbr> {{ .FavoriteCount }} |
-					<abbr title="posted at">⏲</abbr> <time datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}"><a href="/tweet/{{ .ID }}">{{ .CreatedAt.Format "Jan 02, 2006 15:04:05" }}</a></time>
+					<abbr title="posted at">⏲</abbr>
+					<time datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">
+						<a href="/tweet/{{ .ID }}">
+							{{ .CreatedAt.Format "Jan 02, 2006 15:04:05" }}
+						</a>
+					</time>
 				</p>
 			</details>
 		</aside>
@@ -287,31 +292,9 @@ func Page(data *twitwoo.Data, id int64, w io.Writer) error {
 	}, w)
 }
 
-func render(data *twitwoo.Data, pd pageData, fn func(*twitwoo.Tweet) *twitwoo.Tweet, w io.Writer) error {
-	m, err := data.Manifest()
-	if err != nil {
-		return err
-	}
+type filterFunc func(*twitwoo.Tweet) *twitwoo.Tweet
 
-	funcMap := FuncMap(m)
-
-	header := template.Must(template.New("header").Funcs(funcMap).Parse(pageIndexHeaderTmpl))
-
-	profiles, err := data.Profiles()
-	if err != nil {
-		return err
-	}
-	if len(profiles) < 1 {
-		return errors.New("no profiles found")
-	}
-
-	pd.UserInfo = m.UserInfo
-	pd.Profile = profiles[0]
-
-	if err := header.Execute(w, pd); err != nil {
-		return err
-	}
-
+func renderTweets(data *twitwoo.Data, pd pageData, filter filterFunc, funcMap template.FuncMap, w io.Writer) error {
 	tweet := template.Must(template.New("tweet").Funcs(funcMap).Parse(pageIndexTweetTmpl))
 
 	// TODO:This is an incredibly naive implementation, but for live serving
@@ -335,13 +318,13 @@ func render(data *twitwoo.Data, pd pageData, fn func(*twitwoo.Tweet) *twitwoo.Tw
 		}
 
 		// If we don't have a selector function, select everything.
-		if fn == nil {
+		if filter == nil {
 			cnt++
 			return tweet.Execute(w, t)
 		}
 
 		// If the tweet passes the selector function, use it.
-		t = fn(t)
+		t = filter(t)
 		if t != nil {
 			cnt++
 			return tweet.Execute(w, t)
@@ -349,6 +332,37 @@ func render(data *twitwoo.Data, pd pageData, fn func(*twitwoo.Tweet) *twitwoo.Tw
 
 		return nil
 	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func render(data *twitwoo.Data, pd pageData, fn func(*twitwoo.Tweet) *twitwoo.Tweet, w io.Writer) error {
+	m, err := data.Manifest()
+	if err != nil {
+		return err
+	}
+
+	funcMap := FuncMap(m)
+
+	profiles, err := data.Profiles()
+	if err != nil {
+		return err
+	}
+	if len(profiles) < 1 {
+		return errors.New("no profiles found")
+	}
+
+	pd.UserInfo = m.UserInfo
+	pd.Profile = profiles[0]
+
+	header := template.Must(template.New("header").Funcs(funcMap).Parse(pageIndexHeaderTmpl))
+	if err = header.Execute(w, pd); err != nil {
+		return err
+	}
+
+	if err = renderTweets(data, pd, fn, funcMap, w); err != nil {
 		return err
 	}
 
