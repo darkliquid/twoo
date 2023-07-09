@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-
-	"github.com/darkliquid/twoo/cmd/extract"
 )
 
 var cfgFile string
@@ -30,7 +28,7 @@ func Execute() error {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.twoo.yaml)")
-	rootCmd.AddCommand(extract.Command())
+	rootCmd.AddCommand(extractCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

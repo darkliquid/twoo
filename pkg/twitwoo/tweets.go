@@ -1,9 +1,6 @@
 package twitwoo
 
 import (
-	"fmt"
-	"path"
-	"strings"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -70,17 +67,6 @@ type Media struct {
 	ID          int64  `json:"id"`
 }
 
-func (m *Media) File() string {
-	parts := strings.Split(m.ExpandedURL, "/status/")
-	if len(parts) != 2 {
-		return ""
-	}
-
-	pfx := strings.Split(parts[1], "/")[0]
-	sfx := path.Base(m.MediaURL)
-	return path.Join("data/tweets_media", fmt.Sprintf("%s-%s", pfx, sfx))
-}
-
 // Tweet represents a single tweet.
 type Tweet struct {
 	CreatedAt          time.Time       `json:"created_at"`
@@ -100,7 +86,7 @@ func (t *Tweet) decode(el jsoniter.Any) {
 	el = el.Get("tweet")
 	el.ToVal(t)
 
-	media := el.Get("entities", "media")
+	media := el.Get("extended_entities", "media")
 	if media.Size() > 0 {
 		media.ToVal(&t.Media)
 	}

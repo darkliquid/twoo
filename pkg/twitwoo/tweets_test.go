@@ -16,8 +16,8 @@ func TestTweets(t *testing.T) {
 	tw, err := data.Tweets()
 	require.NoError(t, err)
 	require.Len(t, tw, 28)
-	require.Equal(t, "1541752634348019715", tw[27].ID)
-	require.Equal(t, "data/tweets_media/1541752634348019715-FWVnxzyWIAIEZU3.png", tw[27].Media[0].File())
+	require.Equal(t, int64(1541752634348019715), tw[27].ID)
+	require.Equal(t, "http://pbs.twimg.com/media/FWVnxzyWIAIEZU3.png", tw[27].Media[0].MediaURL)
 
 	require.Equal(t, []string{"dungeon23", "City23", "setting23", "finishit23"}, tw[7].Hashtags)
 	require.Equal(t, map[string]twitwoo.Link{
@@ -37,12 +37,15 @@ func TestEachTweet(t *testing.T) {
 	var tw []*twitwoo.Tweet
 	err := data.EachTweet(func(t *twitwoo.Tweet) error {
 		tw = append(tw, t)
+		if len(tw) >= 28 {
+			return twitwoo.ErrBreak
+		}
 		return nil
 	})
 
 	require.NoError(t, err)
 	require.Len(t, tw, 28)
-	require.Equal(t, "1541752634348019715", tw[27].ID)
+	require.Equal(t, int64(1541752634348019715), tw[27].ID)
 
 	require.Equal(t, []string{"dungeon23", "City23", "setting23", "finishit23"}, tw[7].Hashtags)
 	require.Equal(t, map[string]twitwoo.Link{

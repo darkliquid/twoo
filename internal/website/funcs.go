@@ -10,14 +10,14 @@ import (
 	"github.com/darkliquid/twoo/pkg/twitwoo"
 )
 
-var urlRE = regexp.MustCompile(`(?i)[^>"](http|https|ftp):\/\/(\S*)[^<"]`)
+var urlRE = regexp.MustCompile(`(?i)(^|[^>"])(http|https|ftp):\/\/(\S+)([^<"]|$)`)
 
-const linkSubstitution = "<a href=\"$1://$2\">$1://$2</a>"
+const linkSubstitution = " <a href=\"$2://$3\">$2://$3</a> "
 
 func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 	return template.FuncMap{
 		"fancy_tweet": func(t *twitwoo.Tweet) template.HTML {
-			text := t.FullText
+			text := "<p>" + t.FullText
 			text = strings.ReplaceAll(text, "\n", "<br>")
 
 			for _, tag := range t.Hashtags {
@@ -34,6 +34,24 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 
 			text = urlRE.ReplaceAllString(text, linkSubstitution)
 
+			text += "</p>"
+
+			if len(t.Media) > 0 {
+				text += "<ul>"
+				for _, media := range t.Media {
+					text += "<li>"
+					file := fmt.Sprintf("/data/tweets_media/%d-%s", t.ID, path.Base(media.MediaURL))
+					switch media.Type {
+					case "photo":
+						text += fmt.Sprintf(`<img src="%s">`, file)
+					case "video":
+						text += fmt.Sprintf(`<video controls><source src="%s" type="video/mp4"></video>`, file)
+					}
+					text += "</li>"
+				}
+				text += "</ul>"
+			}
+
 			return template.HTML(text)
 		},
 		"profile_header_url": func(p *twitwoo.Profile) string {
@@ -48,6 +66,5 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 			}
 			return fmt.Sprintf("/data/profile_media/%d-%s", m.UserInfo.AccountID, path.Base(p.Avatar))
 		},
-
 	}
 }
