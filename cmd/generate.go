@@ -3,9 +3,11 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -16,9 +18,9 @@ import (
 
 type generateCfg struct {
 	OutDir          string
-	Verbose         bool
-	PageSize        int
 	SortOrder       string
+	PageSize        int
+	Verbose         bool
 	IncludeReplies  bool
 	IncludeRetweets bool
 	ExtractOnly     bool
@@ -42,8 +44,8 @@ func vlog(args ...any) {
 	}
 }
 
-func genExtractTweets(data *twitwoo.Data) error {
-	cnt := int64(0)
+func genExtractTweets(data *twitwoo.Data) ([]string, error) {
+	var files []string
 	replies := int64(0)
 	retweets := int64(0)
 
@@ -85,13 +87,13 @@ func genExtractTweets(data *twitwoo.Data) error {
 
 		vlog("Writing tweet to", fp)
 
-		cnt++
+		files = append(files, fp)
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
-	vlog("Extracted", cnt, "tweets")
+	vlog("Extracted", len(files), "tweets")
 
 	if gencfg.IncludeReplies {
 		vlog("Included", replies, "replies")
@@ -105,7 +107,7 @@ func genExtractTweets(data *twitwoo.Data) error {
 		vlog("Excluded", retweets, "retweets")
 	}
 
-	return nil
+	return files, nil
 }
 
 // generateCmd represents the generate command.
@@ -116,18 +118,19 @@ var generateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Step 1: Open the archive
-		fs, closer, err := util.Open(args[0])
+		afs, closer, err := util.Open(args[0])
 		if err != nil {
 			return err
 		}
 		defer closer() //nolint:errcheck // nothing we can do about this
 
 		// Step 2: Init the data parser
-		data := twitwoo.New(fs)
+		data := twitwoo.New(afs)
 
 		// Step 3: Extract the tweets
+		var files []string
 		if !gencfg.SkipExtract {
-			if err = genExtractTweets(data); err != nil {
+			if files, err = genExtractTweets(data); err != nil {
 				return err
 			}
 		} else {
@@ -139,9 +142,71 @@ var generateCmd = &cobra.Command{
 			return nil
 		}
 
-		// Step 4: Iterate over the tweets on the file system and build the static HTML
+		// Step 4: Iterate over the tweets on the file system if we haven't already
+		// determined them via extraction.
+		if len(files) == 0 {
+			if err = filepath.WalkDir(gencfg.OutDir, func(path string, d fs.DirEntry, err error) error {
+				if path == gencfg.OutDir {
+					return nil
+				}
+
+				if d.IsDir() {
+					return nil
+				}
+
+				if strings.HasSuffix(path, ".json") {
+					files = append(files, path)
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+
+		// Step 5: Sort the files based on sort order (they are lexographically sorted by default
+		// which will result is ascending chronological order due to the naming conventions).
+		if gencfg.SortOrder == "desc" {
+			sort.Sort(sort.Reverse(sort.StringSlice(files)))
+		}
+
+		// Step 6: Create detail pages for each tweet
+		for _, f := range files {
+			if err = genDetailsPage(f); err != nil {
+				return err
+			}
+		}
+
+		// Step 7: Group files into pages based on page size
+		pageNum := int64(1)
+		for len(files) > 0 {
+			var page []string
+			if len(files) > gencfg.PageSize {
+				page = files[:gencfg.PageSize]
+				files = files[gencfg.PageSize:]
+			} else {
+				page = files
+				files = []string{}
+			}
+
+			// Step 8: Generate the HTML for the main feed pages
+			if err := genIndexPage(page, pageNum, len(files) == 0); err != nil {
+				return err
+			}
+			pageNum++
+		}
+
 		return nil
 	},
+}
+
+func genDetailsPage(fn string) error {
+	vlog("Generating details page for", fn)
+	return nil
+}
+
+func genIndexPage(fns []string, pageNum int64, hasNext bool) error {
+	vlog("Generating index page", pageNum, "with", len(fns), "tweets")
+	return nil
 }
 
 func tweetDir(t *twitwoo.Tweet) string {

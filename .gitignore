@@ -5,7 +5,8 @@ go-test.json
 *#
 .#*
 coverage.txt
-
+out
+static
 go-build.log
 go-install.log
 go-test.json
