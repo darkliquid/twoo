@@ -69,17 +69,17 @@ type Media struct {
 
 // Tweet represents a single tweet.
 type Tweet struct {
-	CreatedAt          time.Time       `json:"created_at"`
-	URLMap             map[string]Link `json:"urlmap"`
-	InReplyToUserID    string          `json:"in_reply_to_user_id_str"`
-	InReplayToStatusID string          `json:"in_reply_to_status_id_str"`
-	FullText           string          `json:"full_text"`
-	Hashtags           []string        `json:"hashtags"`
-	Mentions           []Mention       `json:"mentions"`
-	Media              []Media         `json:"media"`
-	ID                 int64           `json:"id"`
-	RetweetCount       int64           `json:"retweet_count"`
-	FavoriteCount      int64           `json:"favorite_count"`
+	CreatedAt         time.Time       `json:"created_at"`
+	URLMap            map[string]Link `json:"urlmap"`
+	InReplyToUserID   string          `json:"in_reply_to_user_id_str"`
+	InReplyToStatusID string          `json:"in_reply_to_status_id_str"`
+	FullText          string          `json:"full_text"`
+	Hashtags          []string        `json:"hashtags"`
+	Mentions          []Mention       `json:"mentions"`
+	Media             []Media         `json:"media"`
+	ID                int64           `json:"id"`
+	RetweetCount      int64           `json:"retweet_count"`
+	FavoriteCount     int64           `json:"favorite_count"`
 }
 
 func (t *Tweet) decode(el jsoniter.Any) {

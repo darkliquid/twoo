@@ -42,6 +42,72 @@ func vlog(args ...any) {
 	}
 }
 
+func genExtractTweets(data *twitwoo.Data) error {
+	cnt := int64(0)
+	replies := int64(0)
+	retweets := int64(0)
+
+	if err := data.EachTweet(func(t *twitwoo.Tweet) error {
+		if t.InReplyToStatusID != "" {
+			// TODO: handle threads separately.
+			replies++
+			if !gencfg.IncludeReplies {
+				vlog("Skipping reply", t.ID)
+				return nil
+			}
+		}
+
+		if strings.HasPrefix(t.FullText, "RT ") {
+			retweets++
+			if !gencfg.IncludeRetweets {
+				vlog("Skipping retweet", t.ID)
+				return nil
+			}
+		}
+
+		dir := tweetDir(t)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+
+		// ensure the tweet ID is 20 characters long for easier sorting
+		fn := fmt.Sprintf("%020d.json", t.ID)
+		fp := filepath.Join(dir, fn)
+		f, ferr := os.Create(fp)
+		if ferr != nil {
+			return ferr
+		}
+		defer f.Close()
+
+		if err := json.NewEncoder(f).Encode(t); err != nil {
+			return err
+		}
+
+		vlog("Writing tweet to", fp)
+
+		cnt++
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	vlog("Extracted", cnt, "tweets")
+
+	if gencfg.IncludeReplies {
+		vlog("Included", replies, "replies")
+	} else {
+		vlog("Excluded", replies, "replies")
+	}
+
+	if gencfg.IncludeRetweets {
+		vlog("Included", retweets, "retweets")
+	} else {
+		vlog("Excluded", retweets, "retweets")
+	}
+
+	return nil
+}
+
 // generateCmd represents the generate command.
 var generateCmd = &cobra.Command{
 	Use:   "generate",
@@ -59,46 +125,11 @@ var generateCmd = &cobra.Command{
 		// Step 2: Init the data parser
 		data := twitwoo.New(fs)
 
+		// Step 3: Extract the tweets
 		if !gencfg.SkipExtract {
-			cnt := int64(0)
-
-			// Step 3: Extract the tweets
-			if err = data.EachTweet(func(t *twitwoo.Tweet) error {
-				// TODO: Filter whether we want to include the current tweet or not.
-				if !gencfg.IncludeReplies && t.InReplayToStatusID != "" {
-					return nil
-				}
-
-				if !gencfg.IncludeRetweets && strings.HasPrefix(t.FullText, "RT ") {
-					return nil
-				}
-
-				dir := tweetDir(t)
-				if err = os.MkdirAll(dir, 0755); err != nil {
-					return err
-				}
-
-				fn := fmt.Sprintf("%d.json", t.ID)
-				fp := filepath.Join(dir, fn)
-				f, ferr := os.Create(fp)
-				if ferr != nil {
-					return ferr
-				}
-				defer f.Close()
-
-				if err = json.NewEncoder(f).Encode(t); err != nil {
-					return err
-				}
-
-				vlog("Writing tweet to", fp)
-
-				cnt++
-				return nil
-			}); err != nil {
+			if err = genExtractTweets(data); err != nil {
 				return err
 			}
-
-			vlog("Extracted", cnt, "tweets")
 		} else {
 			vlog("Skipping tweet extraction")
 		}
@@ -118,18 +149,14 @@ func tweetDir(t *twitwoo.Tweet) string {
 	yearStr := fmt.Sprint(year)
 	monthStr := fmt.Sprintf("%02d", month)
 	dayStr := fmt.Sprintf("%02d", day)
-	hour, minute, second := t.CreatedAt.Clock()
-	hourStr := fmt.Sprintf("%02d", hour)
-	minStr := fmt.Sprintf("%02d", minute)
-	secStr := fmt.Sprintf("%02d", second)
 
-	return filepath.Join(gencfg.OutDir, yearStr, monthStr, dayStr, hourStr, minStr, secStr)
+	return filepath.Join(gencfg.OutDir, yearStr, monthStr, dayStr)
 }
 
 func init() {
 	generateCmd.Flags().StringVarP(&gencfg.OutDir, "out", "o", ".", "where to write the static site to")
 	generateCmd.Flags().BoolVarP(&gencfg.Verbose, "verbose", "v", false, "enable verbose output")
-	generateCmd.Flags().IntVarP(&gencfg.PageSize, "page-size", "p", 50, "how many tweets to include per page")
+	generateCmd.Flags().IntVarP(&gencfg.PageSize, "page-size", "p", 20, "how many tweets to include per page")
 	generateCmd.Flags().StringVarP(&gencfg.SortOrder, "sort", "s", "desc", "sort order for tweets (asc or desc)")
 	generateCmd.Flags().BoolVarP(&gencfg.IncludeReplies, "include-replies", "r", false, "include replies in the output")
 	generateCmd.Flags().BoolVarP(&gencfg.IncludeRetweets, "include-retweets", "t", false, "include retweets in the output")
