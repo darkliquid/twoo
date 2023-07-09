@@ -46,7 +46,6 @@ func stringToIP(op string) jsoniter.DecoderFunc {
 func init() {
 	registerManifestDecoders()
 	registerTweetDecoders()
-	registerAccountCreationIPDecoders()
 }
 
 type decoder interface {
