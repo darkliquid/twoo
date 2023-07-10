@@ -25,11 +25,13 @@ type generateCfg struct {
 	IncludeRetweets bool
 	ExtractOnly     bool
 	SkipExtract     bool
+	SkipDetails     bool
 }
 
 var gencfg generateCfg
 
-const generateHelp = `Generate a static HTML website of the data included in the archive
+const (
+	generateHelp = `Generate a static HTML website of the data included in the archive
 
 generate uses a different strategy to serve to build the same kinf of data.
 Rather than operating entirely from the archive, generate first extracts every tweet
@@ -37,6 +39,8 @@ to disk and then builds a static HTML website using the extracted data.
 
 This approach allows for more flexibility in how the data is presented, but is
 more disk intensive as the data is being duplicated.`
+	defaultPageSize = 20
+)
 
 func vlog(args ...any) {
 	if gencfg.Verbose {
@@ -93,7 +97,13 @@ func genExtractTweets(data *twitwoo.Data) ([]string, error) {
 		return nil, err
 	}
 
-	vlog("Extracted", len(files), "tweets")
+	vlogExtracted(int64(len(files)), replies, retweets)
+
+	return files, nil
+}
+
+func vlogExtracted(tweets, replies, retweets int64) {
+	vlog("Extracted", tweets, "tweets")
 
 	if gencfg.IncludeReplies {
 		vlog("Included", replies, "replies")
@@ -106,8 +116,6 @@ func genExtractTweets(data *twitwoo.Data) ([]string, error) {
 	} else {
 		vlog("Excluded", retweets, "retweets")
 	}
-
-	return files, nil
 }
 
 // generateCmd represents the generate command.
@@ -170,10 +178,14 @@ var generateCmd = &cobra.Command{
 		}
 
 		// Step 6: Create detail pages for each tweet
-		for _, f := range files {
-			if err = genDetailsPage(f); err != nil {
-				return err
+		if !gencfg.SkipDetails {
+			for _, f := range files {
+				if err = genDetailsPage(data, f); err != nil {
+					return err
+				}
 			}
+		} else {
+			vlog("Skipping detail page generation")
 		}
 
 		// Step 7: Group files into pages based on page size
@@ -189,7 +201,7 @@ var generateCmd = &cobra.Command{
 			}
 
 			// Step 8: Generate the HTML for the main feed pages
-			if err := genIndexPage(page, pageNum, len(files) == 0); err != nil {
+			if err = genIndexPage(data, page, pageNum, len(files) > 0); err != nil {
 				return err
 			}
 			pageNum++
@@ -199,13 +211,15 @@ var generateCmd = &cobra.Command{
 	},
 }
 
-func genDetailsPage(fn string) error {
+func genDetailsPage(data *twitwoo.Data, fn string) error {
 	vlog("Generating details page for", fn)
+	// website.Content(data, pd, fn, w)
 	return nil
 }
 
-func genIndexPage(fns []string, pageNum int64, hasNext bool) error {
+func genIndexPage(data *twitwoo.Data, fns []string, pageNum int64, hasNext bool) error {
 	vlog("Generating index page", pageNum, "with", len(fns), "tweets")
+	// website.Content(data, pd, fn, w)
 	return nil
 }
 
@@ -219,14 +233,62 @@ func tweetDir(t *twitwoo.Tweet) string {
 }
 
 func init() {
-	generateCmd.Flags().StringVarP(&gencfg.OutDir, "out", "o", ".", "where to write the static site to")
-	generateCmd.Flags().BoolVarP(&gencfg.Verbose, "verbose", "v", false, "enable verbose output")
-	generateCmd.Flags().IntVarP(&gencfg.PageSize, "page-size", "p", 20, "how many tweets to include per page")
-	generateCmd.Flags().StringVarP(&gencfg.SortOrder, "sort", "s", "desc", "sort order for tweets (asc or desc)")
-	generateCmd.Flags().BoolVarP(&gencfg.IncludeReplies, "include-replies", "r", false, "include replies in the output")
-	generateCmd.Flags().BoolVarP(&gencfg.IncludeRetweets, "include-retweets", "t", false, "include retweets in the output")
-	generateCmd.Flags().BoolVarP(&gencfg.ExtractOnly, "extract-only", "e", false, "only extract the tweets, don't build the static site")
-	generateCmd.Flags().BoolVarP(&gencfg.SkipExtract, "skip-extract", "k", false, "skip the extraction step and only build the static site")
+	generateCmd.Flags().StringVarP(
+		&gencfg.OutDir,
+		"out",
+		"o",
+		".",
+		"where to write the static site to",
+	)
+	generateCmd.Flags().BoolVarP(
+		&gencfg.Verbose,
+		"verbose",
+		"v",
+		false,
+		"enable verbose output",
+	)
+	generateCmd.Flags().IntVarP(
+		&gencfg.PageSize,
+		"page-size",
+		"p",
+		defaultPageSize,
+		"how many tweets to include per page",
+	)
+	generateCmd.Flags().StringVarP(
+		&gencfg.SortOrder,
+		"sort",
+		"s",
+		"desc",
+		"sort order for tweets (asc or desc)",
+	)
+	generateCmd.Flags().BoolVarP(
+		&gencfg.IncludeReplies,
+		"include-replies",
+		"r",
+		false,
+		"include replies in the output",
+	)
+	generateCmd.Flags().BoolVarP(
+		&gencfg.IncludeRetweets,
+		"include-retweets",
+		"t",
+		false,
+		"include retweets in the output",
+	)
+	generateCmd.Flags().BoolVarP(
+		&gencfg.ExtractOnly,
+		"extract-only",
+		"e",
+		false,
+		"only extract the tweets, don't build the static site",
+	)
+	generateCmd.Flags().BoolVarP(
+		&gencfg.SkipExtract,
+		"skip-extract",
+		"k",
+		false,
+		"skip the extraction step and only build the static site",
+	)
 
 	rootCmd.AddCommand(generateCmd)
 }

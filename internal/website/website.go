@@ -2,6 +2,7 @@ package website
 
 import (
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 
@@ -178,17 +179,13 @@ var pageIndexHeaderTmpl = `<!DOCTYPE html>
 			</figure>
 		</aside>
 	</header>
-	{{ if gt .PageCount 0 }}
+	{{ if or (.PrevPage .NextPage) }}
 	<nav>
-	{{ if gt .PrevPage 0 }}
-	{{ if eq .PrevPage 1 }}
-	<a class="prev" href="/">Previous</a>
-	{{ else }}
-	<a class="prev" href="/page/{{ .PrevPage }}">Previous</a>
+	{{ if .PrevPage }}
+	<a class="prev" href="{{ .PrevPage }}">Previous</a>
 	{{ end }}
-	{{ end }}
-	{{ if lt .NextPage .PageCount }}
-	<a class="next" href="/page/{{ .NextPage }}">Next</a>
+	{{ if .NextPage }}
+	<a class="next" href="{{ .NextPage }}">Next</a>
 	{{ end }}
 	</nav>
 	{{ end }}
@@ -218,17 +215,13 @@ var pageIndexTweetTmpl = `
 
 var pageIndexFooterTmpl = `
 	</main>
-	{{ if gt .PageCount 0 }}
+	{{ if or (.PrevPage .NextPage) }}
 	<nav>
-	{{ if gt .Page 1 }}
-	{{ if eq .Page 2 }}
-	<a class="prev" href="/">Previous</a>
-	{{ else }}
-	<a class="prev" href="/page/{{ .PrevPage }}">Previous</a>
+	{{ if .PrevPage}}
+	<a class="prev" href="{{ .PrevPage }}">Previous</a>
 	{{ end }}
-	{{ end }}
-	{{ if lt .Page .PageCount }}
-	<a class="next" href="/page/{{ .NextPage }}">Next</a>
+	{{ if .NextPage }}
+	<a class="next" href="{{ .NextPage }}">Next</a>
 	{{ end }}
 	</nav>
 	{{ end }}
@@ -244,8 +237,8 @@ type pageData struct {
 	UserInfo   twitwoo.UserInfo
 	Page       int64
 	PageSize   int64
-	PrevPage   int64
-	NextPage   int64
+	PrevPage   string
+	NextPage   string
 	PageCount  int64
 	TweetCount int64
 }
@@ -271,15 +264,20 @@ func Index(data *twitwoo.Data, page, pageSize int64, w io.Writer) error {
 	}
 
 	pageCount := totalTweets / pageSize
-
-	return render(data, pageData{
+	pd := pageData{
 		Page:       page,
 		PageSize:   pageSize,
 		PageCount:  pageCount,
 		TweetCount: totalTweets,
-		PrevPage:   page - 1,
-		NextPage:   page + 1,
-	}, nil, w)
+	}
+	if page > 1 {
+		pd.PrevPage = fmt.Sprintf("/page/%d", page-1)
+	}
+	if page < pageCount {
+		pd.NextPage = fmt.Sprintf("/page/%d", page+1)
+	}
+
+	return render(data, pd, nil, w)
 }
 
 // Page writes a single item page.
@@ -363,6 +361,45 @@ func render(data *twitwoo.Data, pd pageData, fn func(*twitwoo.Tweet) *twitwoo.Tw
 	}
 
 	if err = renderTweets(data, pd, fn, funcMap, w); err != nil {
+		return err
+	}
+
+	footer := template.Must(template.New("footer").Funcs(funcMap).Parse(pageIndexFooterTmpl))
+	return footer.Execute(w, pd)
+}
+
+// Content renders a page containing custom content.
+func Content(data *twitwoo.Data, pd pageData, fn contentFunc, w io.Writer) error {
+	return wrapper(data, pd, fn, w)
+}
+
+type contentFunc func(data *twitwoo.Data, pd pageData, w io.Writer) error
+
+func wrapper(data *twitwoo.Data, pd pageData, fn contentFunc, w io.Writer) error {
+	m, err := data.Manifest()
+	if err != nil {
+		return err
+	}
+
+	funcMap := FuncMap(m)
+
+	profiles, err := data.Profiles()
+	if err != nil {
+		return err
+	}
+	if len(profiles) < 1 {
+		return errors.New("no profiles found")
+	}
+
+	pd.UserInfo = m.UserInfo
+	pd.Profile = profiles[0]
+
+	header := template.Must(template.New("header").Funcs(funcMap).Parse(pageIndexHeaderTmpl))
+	if err = header.Execute(w, pd); err != nil {
+		return err
+	}
+
+	if err = fn(data, pd, w); err != nil {
 		return err
 	}
 
