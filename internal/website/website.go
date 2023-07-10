@@ -179,7 +179,7 @@ var pageIndexHeaderTmpl = `<!DOCTYPE html>
 			</figure>
 		</aside>
 	</header>
-	{{ if or (.PrevPage .NextPage) }}
+	{{ if or (.PrevPage) (.NextPage) }}
 	<nav>
 	{{ if .PrevPage }}
 	<a class="prev" href="{{ .PrevPage }}">Previous</a>
@@ -203,7 +203,7 @@ var pageIndexTweetTmpl = `
 					<abbr title="likes">♥</abbr> {{ .FavoriteCount }} |
 					<abbr title="posted at">⏲</abbr>
 					<time datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">
-						<a href="/tweet/{{ .ID }}">
+						<a href="{{ tweet_url . }}">
 							{{ .CreatedAt.Format "Jan 02, 2006 15:04:05" }}
 						</a>
 					</time>
@@ -215,7 +215,7 @@ var pageIndexTweetTmpl = `
 
 var pageIndexFooterTmpl = `
 	</main>
-	{{ if or (.PrevPage .NextPage) }}
+	{{ if or (.PrevPage) (.NextPage) }}
 	<nav>
 	{{ if .PrevPage}}
 	<a class="prev" href="{{ .PrevPage }}">Previous</a>
@@ -232,13 +232,13 @@ var pageIndexFooterTmpl = `
 	</html>
 `
 
-type pageData struct {
+type PageData struct {
 	Profile    *twitwoo.Profile
+	PrevPage   string
+	NextPage   string
 	UserInfo   twitwoo.UserInfo
 	Page       int64
 	PageSize   int64
-	PrevPage   string
-	NextPage   string
 	PageCount  int64
 	TweetCount int64
 }
@@ -264,7 +264,7 @@ func Index(data *twitwoo.Data, page, pageSize int64, w io.Writer) error {
 	}
 
 	pageCount := totalTweets / pageSize
-	pd := pageData{
+	pd := PageData{
 		Page:       page,
 		PageSize:   pageSize,
 		PageCount:  pageCount,
@@ -282,7 +282,7 @@ func Index(data *twitwoo.Data, page, pageSize int64, w io.Writer) error {
 
 // Page writes a single item page.
 func Page(data *twitwoo.Data, id int64, w io.Writer) error {
-	return render(data, pageData{PageSize: 1}, func(t *twitwoo.Tweet) *twitwoo.Tweet {
+	return render(data, PageData{PageSize: 1}, func(t *twitwoo.Tweet) *twitwoo.Tweet {
 		if t.ID == id {
 			return t
 		}
@@ -292,7 +292,7 @@ func Page(data *twitwoo.Data, id int64, w io.Writer) error {
 
 type filterFunc func(*twitwoo.Tweet) *twitwoo.Tweet
 
-func renderTweets(data *twitwoo.Data, pd pageData, filter filterFunc, funcMap template.FuncMap, w io.Writer) error {
+func renderTweets(data *twitwoo.Data, pd PageData, filter filterFunc, funcMap template.FuncMap, w io.Writer) error {
 	tweet := template.Must(template.New("tweet").Funcs(funcMap).Parse(pageIndexTweetTmpl))
 
 	// TODO:This is an incredibly naive implementation, but for live serving
@@ -336,7 +336,7 @@ func renderTweets(data *twitwoo.Data, pd pageData, filter filterFunc, funcMap te
 	return nil
 }
 
-func render(data *twitwoo.Data, pd pageData, fn func(*twitwoo.Tweet) *twitwoo.Tweet, w io.Writer) error {
+func render(data *twitwoo.Data, pd PageData, fn func(*twitwoo.Tweet) *twitwoo.Tweet, w io.Writer) error {
 	m, err := data.Manifest()
 	if err != nil {
 		return err
@@ -369,13 +369,25 @@ func render(data *twitwoo.Data, pd pageData, fn func(*twitwoo.Tweet) *twitwoo.Tw
 }
 
 // Content renders a page containing custom content.
-func Content(data *twitwoo.Data, pd pageData, fn contentFunc, w io.Writer) error {
+func Content(data *twitwoo.Data, pd PageData, fn contentFunc, w io.Writer) error {
 	return wrapper(data, pd, fn, w)
 }
 
-type contentFunc func(data *twitwoo.Data, pd pageData, w io.Writer) error
+// Tweet renders a singular tweet without wrapper HTML for the rest of a page.
+func Tweet(data *twitwoo.Data, tw *twitwoo.Tweet, w io.Writer) error {
+	m, err := data.Manifest()
+	if err != nil {
+		return err
+	}
 
-func wrapper(data *twitwoo.Data, pd pageData, fn contentFunc, w io.Writer) error {
+	funcMap := FuncMap(m)
+
+	return template.Must(template.New("tweet").Funcs(funcMap).Parse(pageIndexTweetTmpl)).Execute(w, tw)
+}
+
+type contentFunc func(data *twitwoo.Data, pd PageData, w io.Writer) error
+
+func wrapper(data *twitwoo.Data, pd PageData, fn contentFunc, w io.Writer) error {
 	m, err := data.Manifest()
 	if err != nil {
 		return err

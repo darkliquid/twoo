@@ -80,5 +80,9 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 			}
 			return fmt.Sprintf("/data/profile_media/%d-%s", m.UserInfo.AccountID, path.Base(p.Avatar))
 		},
+		"tweet_url": func(t *twitwoo.Tweet) string {
+			y, m, d:= t.CreatedAt.Date()
+			return fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, t.ID)
+		},
 	}
 }

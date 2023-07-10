@@ -3,16 +3,20 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
 	"github.com/darkliquid/twoo/cmd/util"
+	"github.com/darkliquid/twoo/internal/website"
 	"github.com/darkliquid/twoo/pkg/twitwoo"
 )
 
@@ -40,6 +44,7 @@ to disk and then builds a static HTML website using the extracted data.
 This approach allows for more flexibility in how the data is presented, but is
 more disk intensive as the data is being duplicated.`
 	defaultPageSize = 20
+	outDirMode      = 0755
 )
 
 func vlog(args ...any) {
@@ -150,10 +155,17 @@ var generateCmd = &cobra.Command{
 			return nil
 		}
 
+		// We are operating on the output fs from now on
+		afs = afero.NewBasePathFs(afero.NewOsFs(), gencfg.OutDir)
+
 		// Step 4: Iterate over the tweets on the file system if we haven't already
 		// determined them via extraction.
 		if len(files) == 0 {
 			if err = filepath.WalkDir(gencfg.OutDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+
 				if path == gencfg.OutDir {
 					return nil
 				}
@@ -163,7 +175,7 @@ var generateCmd = &cobra.Command{
 				}
 
 				if strings.HasSuffix(path, ".json") {
-					files = append(files, path)
+					files = append(files, strings.TrimPrefix(path, gencfg.OutDir))
 				}
 				return nil
 			}); err != nil {
@@ -179,8 +191,15 @@ var generateCmd = &cobra.Command{
 
 		// Step 6: Create detail pages for each tweet
 		if !gencfg.SkipDetails {
-			for _, f := range files {
-				if err = genDetailsPage(data, f); err != nil {
+			for i, f := range files {
+				var prev, next string
+				if i > 0 {
+					prev = files[i-1]
+				}
+				if i < len(files)-1 {
+					next = files[i+1]
+				}
+				if err = genDetailsPage(afs, data, f, prev, next); err != nil {
 					return err
 				}
 			}
@@ -201,7 +220,7 @@ var generateCmd = &cobra.Command{
 			}
 
 			// Step 8: Generate the HTML for the main feed pages
-			if err = genIndexPage(data, page, pageNum, len(files) > 0); err != nil {
+			if err = genIndexPage(afs, data, page, pageNum, len(files) > 0); err != nil {
 				return err
 			}
 			pageNum++
@@ -211,16 +230,129 @@ var generateCmd = &cobra.Command{
 	},
 }
 
-func genDetailsPage(data *twitwoo.Data, fn string) error {
-	vlog("Generating details page for", fn)
-	// website.Content(data, pd, fn, w)
-	return nil
+func decodeTweet(fs afero.Fs, fn string) (*twitwoo.Tweet, error) {
+	var tweetFile afero.File
+	tweetFile, err := fs.Open(fn)
+	if err != nil {
+		return nil, err
+	}
+	defer tweetFile.Close()
+
+	var tweet twitwoo.Tweet
+	if err = json.NewDecoder(tweetFile).Decode(&tweet); err != nil {
+		return nil, err
+	}
+	return &tweet, nil
 }
 
-func genIndexPage(data *twitwoo.Data, fns []string, pageNum int64, hasNext bool) error {
+func genDetailsPage(fs afero.Fs, data *twitwoo.Data, fn, fnPrev, fnNext string) error {
+	vlog("Generating details page for", fn)
+
+	tweet, err := decodeTweet(fs, fn)
+	if err != nil {
+		return err
+	}
+
+	pd := website.PageData{}
+
+	if fnPrev != "" {
+		vlog("Previous tweet:", fnPrev)
+		prevTweet, err := decodeTweet(fs, fnPrev)
+		if err != nil {
+			return err
+		}
+		y, m, d := prevTweet.CreatedAt.Date()
+		pd.PrevPage = fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, prevTweet.ID)
+	}
+
+	if fnNext != "" {
+		vlog("Next tweet:", fnNext)
+		nextTweet, err := decodeTweet(fs, fnNext)
+		if err != nil {
+			return err
+		}
+		y, m, d := nextTweet.CreatedAt.Date()
+		pd.NextPage = fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, nextTweet.ID)
+	}
+
+	y, m, d := tweet.CreatedAt.Date()
+	outname := filepath.Join(
+		"/",
+		fmt.Sprintf("%d", y),
+		fmt.Sprintf("%02d", m),
+		fmt.Sprintf("%02d", d),
+		fmt.Sprintf("%020d", tweet.ID),
+		"index.html",
+	)
+
+	if err = fs.MkdirAll(filepath.Dir(outname), outDirMode); err != nil {
+		return err
+	}
+
+	vlog("Creating details file", outname)
+
+	f, err := fs.Create(outname)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	vlog("Rendering details page for tweet", tweet.ID)
+
+	return website.Content(data, pd, func(data *twitwoo.Data, _ website.PageData, w io.Writer) error {
+		if err = website.Tweet(data, tweet, w); err != nil {
+			return err
+		}
+		return nil
+	}, f)
+}
+
+func genIndexPage(fs afero.Fs, data *twitwoo.Data, fns []string, pageNum int64, hasNext bool) error {
 	vlog("Generating index page", pageNum, "with", len(fns), "tweets")
-	// website.Content(data, pd, fn, w)
-	return nil
+
+	outname := "index.html"
+	if pageNum > 1 {
+		outname = filepath.Join("page", strconv.FormatInt(pageNum, 10), "index.html")
+	}
+
+	if err := fs.MkdirAll(filepath.Dir(outname), outDirMode); err != nil {
+		return err
+	}
+
+	f, err := fs.Create(outname)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	pd := website.PageData{
+		Page:     pageNum,
+		PageSize: int64(gencfg.PageSize),
+	}
+
+	if pageNum == 2 {
+		pd.PrevPage = "/"
+	} else if pageNum > 1 {
+		pd.PrevPage = fmt.Sprintf("/page/%d", pageNum-1)
+	}
+
+	if hasNext {
+		pd.NextPage = fmt.Sprintf("/page/%d", pageNum+1)
+	}
+
+	return website.Content(data, pd, func(data *twitwoo.Data, _ website.PageData, w io.Writer) error {
+		for _, fn := range fns {
+			tweet, err := decodeTweet(fs, fn)
+			if err != nil {
+				return err
+			}
+
+			if err = website.Tweet(data, tweet, w); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, f)
 }
 
 func tweetDir(t *twitwoo.Tweet) string {
