@@ -203,9 +203,5 @@ func init() {
 		Long: extractCmd.UsageString() + "\nAvailable data types:\n  " + strings.Join(extractTypes, "\n  "),
 		Args: cobra.NoArgs,
 	})
-}
-
-// Command returns the extract command.
-func Command() *cobra.Command {
-	return extractCmd
+	rootCmd.AddCommand(extractCmd)
 }
