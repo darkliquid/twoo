@@ -59,7 +59,7 @@ func genExtractTweets(data *twitwoo.Data) ([]string, error) {
 	retweets := int64(0)
 
 	if err := data.EachTweet(func(t *twitwoo.Tweet) error {
-		if t.InReplyToStatusID != "" {
+		if t.InReplyToStatusID > 0 {
 			// TODO: handle threads separately.
 			replies++
 			if !gencfg.IncludeReplies {
@@ -94,6 +94,7 @@ func genExtractTweets(data *twitwoo.Data) ([]string, error) {
 			return err
 		}
 
+		fp = strings.TrimPrefix(fp, gencfg.OutDir)
 		vlog("Writing tweet to", fp)
 
 		files = append(files, fp)
@@ -151,14 +152,39 @@ var generateCmd = &cobra.Command{
 		}
 
 		if gencfg.ExtractOnly {
-			vlog("Skipping HTML generation")
+			vlog("Skipping HTML generation and media extraction")
 			return nil
 		}
 
 		// We are operating on the output fs from now on
-		afs = afero.NewBasePathFs(afero.NewOsFs(), gencfg.OutDir)
+		outfs := afero.NewBasePathFs(afero.NewOsFs(), gencfg.OutDir)
 
-		// Step 4: Iterate over the tweets on the file system if we haven't already
+		// Step 4: Extract Profile Media
+		m, err := data.Manifest()
+		if err != nil {
+			return err
+		}
+
+		p, err := data.Profiles()
+		if err != nil {
+			return err
+		}
+
+		header := website.ProfileMediaPath(m.UserInfo.AccountID, p[0].Header)
+		if header != "" {
+			if err = copyPath(afs, outfs, header+".jpg", header+".jpg"); err != nil {
+				return err
+			}
+		}
+
+		avatar := website.ProfileMediaPath(m.UserInfo.AccountID, p[0].Avatar)
+		if avatar != "" {
+			if err = copyPath(afs, outfs, avatar, avatar); err != nil {
+				return err
+			}
+		}
+
+		// Step 5: Iterate over the tweets on the file system if we haven't already
 		// determined them via extraction.
 		if len(files) == 0 {
 			if err = filepath.WalkDir(gencfg.OutDir, func(path string, d fs.DirEntry, err error) error {
@@ -183,13 +209,13 @@ var generateCmd = &cobra.Command{
 			}
 		}
 
-		// Step 5: Sort the files based on sort order (they are lexographically sorted by default
+		// Step 6: Sort the files based on sort order (they are lexographically sorted by default
 		// which will result is ascending chronological order due to the naming conventions).
 		if gencfg.SortOrder == "desc" {
 			sort.Sort(sort.Reverse(sort.StringSlice(files)))
 		}
 
-		// Step 6: Create detail pages for each tweet
+		// Step 7: Create detail pages for each tweet
 		if !gencfg.SkipDetails {
 			for i, f := range files {
 				var prev, next string
@@ -199,7 +225,7 @@ var generateCmd = &cobra.Command{
 				if i < len(files)-1 {
 					next = files[i+1]
 				}
-				if err = genDetailsPage(afs, data, f, prev, next); err != nil {
+				if err = genDetailsPage(outfs, data, f, prev, next); err != nil {
 					return err
 				}
 			}
@@ -207,7 +233,7 @@ var generateCmd = &cobra.Command{
 			vlog("Skipping detail page generation")
 		}
 
-		// Step 7: Group files into pages based on page size
+		// Step 8: Group files into pages based on page size
 		pageNum := int64(1)
 		for len(files) > 0 {
 			var page []string
@@ -219,8 +245,8 @@ var generateCmd = &cobra.Command{
 				files = []string{}
 			}
 
-			// Step 8: Generate the HTML for the main feed pages
-			if err = genIndexPage(afs, data, page, pageNum, len(files) > 0); err != nil {
+			// Step 9: Generate the HTML for the main feed pages
+			if err = genIndexPage(afs, outfs, data, page, pageNum, len(files) > 0); err != nil {
 				return err
 			}
 			pageNum++
@@ -257,7 +283,8 @@ func genDetailsPage(fs afero.Fs, data *twitwoo.Data, fn, fnPrev, fnNext string) 
 
 	if fnPrev != "" {
 		vlog("Previous tweet:", fnPrev)
-		prevTweet, err := decodeTweet(fs, fnPrev)
+		var prevTweet *twitwoo.Tweet
+		prevTweet, err = decodeTweet(fs, fnPrev)
 		if err != nil {
 			return err
 		}
@@ -267,7 +294,8 @@ func genDetailsPage(fs afero.Fs, data *twitwoo.Data, fn, fnPrev, fnNext string) 
 
 	if fnNext != "" {
 		vlog("Next tweet:", fnNext)
-		nextTweet, err := decodeTweet(fs, fnNext)
+		var nextTweet *twitwoo.Tweet
+		nextTweet, err = decodeTweet(fs, fnNext)
 		if err != nil {
 			return err
 		}
@@ -300,14 +328,47 @@ func genDetailsPage(fs afero.Fs, data *twitwoo.Data, fn, fnPrev, fnNext string) 
 	vlog("Rendering details page for tweet", tweet.ID)
 
 	return website.Content(data, pd, func(data *twitwoo.Data, _ website.PageData, w io.Writer) error {
-		if err = website.Tweet(data, tweet, w); err != nil {
-			return err
-		}
-		return nil
+		return website.Tweet(data, tweet, w)
 	}, f)
 }
 
-func genIndexPage(fs afero.Fs, data *twitwoo.Data, fns []string, pageNum int64, hasNext bool) error {
+func copyPath(srcfs, destfs afero.Fs, src, dest string) error {
+	srcf, err := srcfs.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcf.Close()
+
+	if err = destfs.MkdirAll(filepath.Dir(dest), outDirMode); err != nil {
+		return err
+	}
+
+	destf, err := destfs.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer destf.Close()
+
+	_, err = io.Copy(destf, srcf)
+	return err
+}
+
+func genExtractMedia(srcfs, destfs afero.Fs, tweet *twitwoo.Tweet) error {
+	for _, m := range tweet.Media {
+		if m.SourceStatusID > 0 && m.SourceStatusID != tweet.ID {
+			vlog("Skipping media entry", m.ID, "because it's from a retweet")
+			continue
+		}
+		vlog("Extracting media entry", m.ID)
+		path := website.TweetMediaPath(tweet.ID, m)
+		if err := copyPath(srcfs, destfs, path, path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func genIndexPage(srcfs, fs afero.Fs, data *twitwoo.Data, fns []string, pageNum int64, hasNext bool) error {
 	vlog("Generating index page", pageNum, "with", len(fns), "tweets")
 
 	outname := "index.html"
@@ -330,7 +391,7 @@ func genIndexPage(fs afero.Fs, data *twitwoo.Data, fns []string, pageNum int64, 
 		PageSize: int64(gencfg.PageSize),
 	}
 
-	if pageNum == 2 {
+	if pageNum == 2 { //nolint:gomnd // 2 is the second page
 		pd.PrevPage = "/"
 	} else if pageNum > 1 {
 		pd.PrevPage = fmt.Sprintf("/page/%d", pageNum-1)
@@ -342,11 +403,18 @@ func genIndexPage(fs afero.Fs, data *twitwoo.Data, fns []string, pageNum int64, 
 
 	return website.Content(data, pd, func(data *twitwoo.Data, _ website.PageData, w io.Writer) error {
 		for _, fn := range fns {
-			tweet, err := decodeTweet(fs, fn)
+			var tweet *twitwoo.Tweet
+			tweet, err = decodeTweet(fs, fn)
 			if err != nil {
 				return err
 			}
 
+			// Extract tweet media
+			if err = genExtractMedia(srcfs, fs, tweet); err != nil {
+				return err
+			}
+
+			// Render tweet
 			if err = website.Tweet(data, tweet, w); err != nil {
 				return err
 			}

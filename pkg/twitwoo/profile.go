@@ -1,8 +1,23 @@
 package twitwoo
 
 import (
+	"unsafe"
+
 	jsoniter "github.com/json-iterator/go"
 )
+
+func registerProfileDecoders() {
+	jsoniter.RegisterTypeDecoderFunc(
+		"twitwoo.Profile",
+		func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+			p := ((*Profile)(ptr))
+			el := iter.ReadAny().Get("profile")
+			el.Get("description").ToVal(&p.Description)
+			p.Avatar = el.Get("avatarMediaUrl").ToString()
+			p.Header = el.Get("headerMediaUrl").ToString()
+		},
+	)
+}
 
 // Profile is the structure of the data/profile.js file.
 type Profile struct {
@@ -13,11 +28,6 @@ type Profile struct {
 	} `json:"description"`
 	Avatar string `json:"avatarMediaUrl"`
 	Header string `json:"headerMediaUrl"`
-}
-
-func (p *Profile) decode(el jsoniter.Any) {
-	el = el.Get("profile")
-	el.ToVal(p)
 }
 
 // Profiles returns all the Profile items.

@@ -10,7 +10,6 @@ import (
 
 type Ptr[T any] interface {
 	*T
-	decoder
 }
 
 func readDataType(d *Data, dt DataType) (io.ReadCloser, int64, error) {
@@ -42,7 +41,7 @@ func All[T Ptr[U], U any](d *Data, dt DataType) ([]T, error) {
 	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, parseBufSize)
 	for iter.ReadArray() {
 		item := T(new(U))
-		item.decode(iter.ReadAny())
+		iter.ReadVal(item)
 		items = append(items, item)
 	}
 
@@ -63,7 +62,7 @@ func Each[T Ptr[U], U any](d *Data, dt DataType, fn func(T) error) error {
 	iter := jsoniter.Parse(jsoniter.ConfigFastest, r, parseBufSize)
 	for iter.ReadArray() {
 		item := T(new(U))
-		item.decode(iter.ReadAny())
+		iter.ReadVal(item)
 		if err = fn(item); err != nil {
 			if errors.Is(err, ErrBreak) {
 				return nil

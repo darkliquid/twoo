@@ -50,20 +50,31 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 
 			text += "</p>"
 
+			includedMedia := 0
+			mediaList := ""
 			if len(t.Media) > 0 {
-				text += "<ul>"
+				mediaList = "<ul>"
 				for _, media := range t.Media {
-					text += "<li>"
-					file := fmt.Sprintf("/data/tweets_media/%d-%s", t.ID, path.Base(media.MediaURL))
+					if media.SourceStatusID > 0 && media.SourceStatusID != t.ID {
+						continue
+					}
+					mediaList += "<li>"
+					file := TweetMediaPath(t.ID, media)
 					switch media.Type {
 					case "photo":
-						text += fmt.Sprintf(`<img src="%s">`, file)
-					case "video":
-						text += fmt.Sprintf(`<video controls><source src="%s" type="video/mp4"></video>`, file)
+						mediaList += fmt.Sprintf(`<img src="%s">`, file)
+						includedMedia++
+					case "video", "animated_gif":
+						includedMedia++
+						mediaList += fmt.Sprintf(`<video controls><source src="%s" type="video/mp4"></video>`, file)
 					}
-					text += "</li>"
+					mediaList += "</li>"
 				}
-				text += "</ul>"
+				mediaList += "</ul>"
+			}
+
+			if includedMedia > 0 {
+				text += mediaList
 			}
 
 			return template.HTML(text) //nolint:gosec // input is trusted
@@ -72,17 +83,27 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 			if p.Header == "" {
 				return ""
 			}
-			return fmt.Sprintf("/data/profile_media/%d-%s.jpg", m.UserInfo.AccountID, path.Base(p.Header))
+			return ProfileMediaPath(m.UserInfo.AccountID, p.Header) + ".jpg"
 		},
 		"profile_avatar_url": func(p *twitwoo.Profile) string {
 			if p.Avatar == "" {
 				return ""
 			}
-			return fmt.Sprintf("/data/profile_media/%d-%s", m.UserInfo.AccountID, path.Base(p.Avatar))
+			return ProfileMediaPath(m.UserInfo.AccountID, p.Avatar)
 		},
 		"tweet_url": func(t *twitwoo.Tweet) string {
-			y, m, d:= t.CreatedAt.Date()
+			y, m, d := t.CreatedAt.Date()
 			return fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, t.ID)
 		},
 	}
+}
+
+// TweetMediaPath returns the path to the media file for the given tweet ID and media URL.
+func TweetMediaPath(tweetID int64, media twitwoo.Media) string {
+	return fmt.Sprintf("/data/tweets_media/%d-%s", tweetID, path.Base(media.MediaURL))
+}
+
+// ProfileMediaPath returns the path to the media for the given profile ID and media URL.
+func ProfileMediaPath(accountID int64, mediaURL string) string {
+	return fmt.Sprintf("/data/profile_media/%d-%s", accountID, path.Base(mediaURL))
 }
