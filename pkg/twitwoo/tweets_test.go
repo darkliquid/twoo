@@ -203,6 +203,7 @@ const exampleTweet = `{ "tweet":{
     }
 }`
 
+//nolint:lll  // This JSON is gona be long
 const exampleTweet2 = `{
     "tweet" : {
       "edit_info" : {
@@ -360,6 +361,7 @@ const exampleTweet2 = `{
     }
   }`
 
+//nolint:lll  // This JSON is gona be long
 const exampleTweet3 = `{
     "tweet" : {
       "edit_info" : {
@@ -525,6 +527,7 @@ const exampleTweet3 = `{
     }
   }`
 
+//nolint:lll  // This JSON is gona be long
 const exampleTweet4 = `{
     "tweet" : {
       "edit_info" : {

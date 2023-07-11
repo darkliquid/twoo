@@ -33,9 +33,6 @@ func stringToTime(op, layout string) jsoniter.DecoderFunc {
 func init() {
 	registerManifestDecoders()
 	registerTweetDecoders()
+	registerTweetMediaDecoders()
 	registerProfileDecoders()
-}
-
-type decoder interface {
-	decode(jsoniter.Any)
 }

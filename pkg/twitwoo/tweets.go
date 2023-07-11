@@ -10,6 +10,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
+//nolint:gocognit // Big function, but not complex - straightforward JSON parsing.
 func registerTweetDecoders() {
 	jsoniter.RegisterFieldDecoderFunc(
 		"twitwoo.Mention",
@@ -46,17 +47,17 @@ func registerTweetDecoders() {
 				iter.ReportError("decode tweet favourite count", err.Error())
 			}
 
-			user_reply := el.Get("in_reply_to_user_id")
-			if user_reply.ValueType() != jsoniter.InvalidValue {
-				t.InReplyToUserID, err = strconv.ParseInt(user_reply.ToString(), 10, 64)
+			userReply := el.Get("in_reply_to_user_id")
+			if userReply.ValueType() != jsoniter.InvalidValue {
+				t.InReplyToUserID, err = strconv.ParseInt(userReply.ToString(), 10, 64)
 				if err != nil {
 					iter.ReportError("decode tweet in reply to user id", err.Error())
 				}
 			}
 
-			status_reply := el.Get("in_reply_to_status_id")
-			if status_reply.ValueType() != jsoniter.InvalidValue {
-				t.InReplyToStatusID, err = strconv.ParseInt(status_reply.ToString(), 10, 64)
+			statusReply := el.Get("in_reply_to_status_id")
+			if statusReply.ValueType() != jsoniter.InvalidValue {
+				t.InReplyToStatusID, err = strconv.ParseInt(statusReply.ToString(), 10, 64)
 				if err != nil {
 					iter.ReportError("decode tweet in reply to status id", err.Error())
 				}
@@ -106,7 +107,9 @@ func registerTweetDecoders() {
 			}
 		},
 	)
+}
 
+func registerTweetMediaDecoders() {
 	jsoniter.RegisterFieldDecoderFunc("twitwoo.Variant", "Bitrate", stringToInt64("decode bitrate"))
 
 	jsoniter.RegisterTypeDecoderFunc(

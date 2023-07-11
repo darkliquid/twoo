@@ -28,57 +28,66 @@ func mentionLink(mention twitwoo.Mention) string {
 	return "<a href=\"https://twitter.com/" + mention.ScreenName + "\">@" + mention.ScreenName + "</a>"
 }
 
+func fancyTweetMedia(t *twitwoo.Tweet) string {
+	includedMedia := 0
+	mediaList := ""
+	if len(t.Media) > 0 {
+		mediaList = "<ul>"
+		for _, media := range t.Media {
+			if media.SourceStatusID > 0 && media.SourceStatusID != t.ID {
+				continue
+			}
+			mediaList += "<li>"
+			file := TweetMediaPath(t.ID, media)
+			switch media.Type {
+			case "photo":
+				mediaList += fmt.Sprintf(`<img src="%s">`, file)
+				includedMedia++
+			case "video", "animated_gif":
+				includedMedia++
+				mediaList += fmt.Sprintf(`<video controls><source src="%s" type="video/mp4"></video>`, file)
+			}
+			mediaList += "</li>"
+		}
+		mediaList += "</ul>"
+	}
+
+	if includedMedia > 0 {
+		return mediaList
+	}
+
+	return ""
+}
+
+func fancyTweet(t *twitwoo.Tweet) template.HTML {
+	text := "<p>" + t.FullText
+	text = strings.ReplaceAll(text, "\n", "<br>")
+
+	for _, tag := range t.Hashtags {
+		text = strings.ReplaceAll(text, "#"+tag, hashtagLink(tag))
+	}
+
+	for url, link := range t.URLMap {
+		text = strings.ReplaceAll(text, url, expandedLink(link))
+	}
+
+	for _, mention := range t.Mentions {
+		text = strings.ReplaceAll(text, "@"+mention.ScreenName, mentionLink(mention))
+	}
+
+	text = urlRE.ReplaceAllString(text, linkSubstitution)
+
+	text += "</p>"
+
+	text += fancyTweetMedia(t)
+
+	return template.HTML(text) //nolint:gosec // input is trusted
+}
+
+// FuncMap returns a template.FuncMap for use in the website templates.
 func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 	return template.FuncMap{
-		"fancy_tweet": func(t *twitwoo.Tweet) template.HTML {
-			text := "<p>" + t.FullText
-			text = strings.ReplaceAll(text, "\n", "<br>")
-
-			for _, tag := range t.Hashtags {
-				text = strings.ReplaceAll(text, "#"+tag, hashtagLink(tag))
-			}
-
-			for url, link := range t.URLMap {
-				text = strings.ReplaceAll(text, url, expandedLink(link))
-			}
-
-			for _, mention := range t.Mentions {
-				text = strings.ReplaceAll(text, "@"+mention.ScreenName, mentionLink(mention))
-			}
-
-			text = urlRE.ReplaceAllString(text, linkSubstitution)
-
-			text += "</p>"
-
-			includedMedia := 0
-			mediaList := ""
-			if len(t.Media) > 0 {
-				mediaList = "<ul>"
-				for _, media := range t.Media {
-					if media.SourceStatusID > 0 && media.SourceStatusID != t.ID {
-						continue
-					}
-					mediaList += "<li>"
-					file := TweetMediaPath(t.ID, media)
-					switch media.Type {
-					case "photo":
-						mediaList += fmt.Sprintf(`<img src="%s">`, file)
-						includedMedia++
-					case "video", "animated_gif":
-						includedMedia++
-						mediaList += fmt.Sprintf(`<video controls><source src="%s" type="video/mp4"></video>`, file)
-					}
-					mediaList += "</li>"
-				}
-				mediaList += "</ul>"
-			}
-
-			if includedMedia > 0 {
-				text += mediaList
-			}
-
-			return template.HTML(text) //nolint:gosec // input is trusted
-		},
+		"fancy_tweet": fancyTweet,
 		"profile_header_url": func(p *twitwoo.Profile) string {
 			if p.Header == "" {
 				return ""
