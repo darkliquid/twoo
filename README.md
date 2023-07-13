@@ -46,6 +46,92 @@ You can list the overridable templates with `twoo generate templates`
 
 You can use the completion command to generate shell completions.
 
+## Templates
+
+The generate command uses 4 templates to render the static site. They are:
+
+ - `header.tmpl` - top half of every page
+ - `footer.tmpl` - bottom half of every page
+ - `tweet.tmpl` - template for each tweet
+ - `stylesheet.tmpl` - template for the stylesheet
+
+The templates all take the same `PageData` data except for `tweet.tmpl` which takes a `Tweet` object. The same functions are available to all templates.
+
+### Data
+
+#### PageData
+
+```yaml
+Profile:
+    Description:
+        Bio: "Description of profile"
+        Website: "http://my.url"
+        Location: "Someplace, Earth"
+    Avatar: "http://path/to/twitter/avatar.jpg"
+    Header: "http://path/to/twitter/header.jpg"
+PrevPage: 1
+NextPage: 3
+UserInfo:
+    UserName: cooluser
+    DisplayName: The Coolest User
+    AccountID: 7657865785
+Page: 2
+PageSize: 10
+PageCount: 234
+TweetCount: 2340
+```
+
+#### Tweet
+
+```yaml
+CreatedAt: "2023-04-01T12:34:56Z"
+URLMap:
+    "http://t.co/abc":
+        DisplayURL: "my.link"
+        ExpandedURL: "http://my.link/actual/link"
+FullText: "complete tweet content"
+Hashtags:
+    - tag1
+    - tag2
+Mentions:
+    - Name: @user
+      ScreenName: A User
+      ID: 858758765
+Media:
+    - ExpandedURL: "http://big/fat/url"
+      URL: "http://small/url"
+      MediaURL: "http://actual/media/location"
+      Type: "video" | "photo" | "animated_gif"
+      DisplayURL: "media/locatio..."
+      ID: 96987698769
+      SourceStatusID: 9869868976
+InReplyToUserID: 878757865
+InReplyToStatusID: 68587657865
+ID: 5465376356
+RetweetCount: 1
+FavoriteCount: 3
+```
+
+### Functions
+
+For examples of usage, see the built-in templates.
+
+#### `fancy_tweet`
+
+Accepts a `Tweet` object and renders it out nicely, including media.
+
+#### `profile_header_url`
+
+Accepts a `Profile` object and returns the url to the asset.
+
+#### `profile_avatar_url`
+
+Accepts a `Profile` object and returns the url to the asset.
+
+#### `tweet_url`
+
+Accepts a `Tweet` objects and returns the url to that specific status.
+
 ## TODO
 
  - [x] Enable specifying custom generation templates
