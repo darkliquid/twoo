@@ -1,236 +1,46 @@
 package website
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 
 	"github.com/darkliquid/twoo/pkg/twitwoo"
 )
 
-var pageIndexHeaderTmpl = `<!DOCTYPE html>
-	<html>
-	<head>
-	<meta charset="utf-8">
-	<title>@{{ .UserInfo.UserName }}{{ if gt .PageCount 0 }} - {{ .Page }}/{{ .PageCount }}{{ end }}</title>
-	<link rel="stylesheet" href="http://markdowncss.github.io/retro/css/retro.css">
-	<style>
-		body {
-			margin: 0;
-			max-width: 100%;
-			padding: 0;
+//go:embed templates
+var builtinTmpl embed.FS
+var Templates fs.FS
+
+var tmplCache *template.Template
+
+func templateCache(data *twitwoo.Data) *template.Template {
+	if tmplCache != nil {
+		return tmplCache
+	}
+
+	m, err := data.Manifest()
+	if err != nil {
+		panic(err)
+	}
+
+	tmplCache, err = template.New("twoo").Funcs(FuncMap(m)).ParseFS(builtinTmpl, "templates/*.tmpl")
+	if err != nil {
+		panic(err)
+	}
+
+	if Templates != nil {
+		tmplCache, err = tmplCache.ParseFS(Templates, "*.tmpl")
+		if err != nil {
+			panic(err)
 		}
+	}
 
-		header {
-			{{ $profile_header_url := profile_header_url .Profile }}
-			{{ with $profile_header_url }}
-			background-image: url({{ . }});
-			{{ end }}
-			background-repeat: no-repeat;
-			background-size: cover;
-			background-position: center;
-			margin-bottom: 1em;
-			padding-top: 5em;
-		}
-
-		header h1 {
-			max-width: 48rem;
-			background-color: #222222dd;
-			margin: 0 auto;
-		}
-
-		header aside {
-			max-width: 48rem;
-			background-color: #222222dd;
-			margin: 0 auto;
-		}
-
-		header aside figure {
-			display: flex;
-			align-items: flex-start;
-			margin: 0;
-		}
-
-		header aside figure figcaption {
-			margin: 0 1em 1em;
-		}
-
-		nav {
-			max-width: 48rem;
-			display: flex;
-			margin-bottom: 1em;
-			background-color: #333;
-			margin: 0 auto;
-		}
-
-		nav a {
-			flex: 1;
-			padding: 0 0.5em;
-		}
-
-		nav a.prev {
-			text-align:left;
-		}
-
-		nav a.next {
-			text-align:right;
-		}
-
-		main {
-			max-width: 48rem;
-			background-color: #222222dd;
-			margin: 0 auto;
-		}
-
-		main article {
-			padding: 1em 0.5em;
-		}
-
-		main article > p {
-			margin: 0;
-		}
-
-		main article ul {
-			display: flex;
-			list-style: none;
-			flex-wrap: wrap;
-			padding: 0;
-			margin: 0;
-		}
-
-		main article ul li {
-			text-align: center;
-			flex: 1;
-			padding: 1em;
-			box-sizing: border-box;
-			margin: 0;
-		}
-
-		main article img {
-			min-width: 200px;
-			display: block;
-		}
-
-		main article+article {
-			border-top: 1px solid #333;
-		}
-
-		main article aside {
-			text-align: right;
-			color: #333;
-		}
-
-		main article aside details p {
-			margin: 0;
-		}
-
-		main article aside details abbr {
-			text-decoration: none;
-		}
-
-		main article aside details time a {
-			color: #333 !important;
-			text-decoration: none;
-		}
-
-		main article aside details time a:hover {
-			text-decoration: underline;
-		}
-
-		footer {
-			max-width: 48rem;
-			text-align: center;
-			margin: 0 auto;
-		}
-	</style>
-	</head>
-	<body>
-	<header>
-		<h1>
-			@{{ .UserInfo.UserName }}
-		</h1>
-		<aside>
-			<figure>
-				{{ $profile_avatar_url := profile_avatar_url .Profile }}
-				{{ with $profile_avatar_url }}
-				<img src="{{ . }}" alt="{{ $.UserInfo.UserName }} Avatar">
-				{{ end }}
-
-				<figcaption>
-					<details>
-						<summary>Bio</summary>
-						<strong>{{ .UserInfo.DisplayName }}</strong>
-						<p>{{ .Profile.Description.Bio }}</p>
-					</details>
-					<details>
-						<summary>Website</summary>
-						<p>
-							<a href="{{ .Profile.Description.Website }}">
-								{{ .Profile.Description.Website }}
-							</a>
-						</p>
-					</details>
-					<details>
-						<summary>Location</summary>
-						<p>{{ .Profile.Description.Location }}</p>
-					</details>
-				</figcaption>
-			</figure>
-		</aside>
-	</header>
-	{{ if or (.PrevPage) (.NextPage) }}
-	<nav>
-	{{ if .PrevPage }}
-	<a class="prev" href="{{ .PrevPage }}">Previous</a>
-	{{ end }}
-	{{ if .NextPage }}
-	<a class="next" href="{{ .NextPage }}">Next</a>
-	{{ end }}
-	</nav>
-	{{ end }}
-	<main>
-`
-
-var pageIndexTweetTmpl = `
-	<article class="tweet">
-		{{ fancy_tweet . }}
-		<aside>
-			<details>
-				<summary>meta</summary>
-				<p>
-					<abbr title="retweets">♻</abbr>  {{ .RetweetCount }} |
-					<abbr title="likes">♥</abbr> {{ .FavoriteCount }} |
-					<abbr title="posted at">⏲</abbr>
-					<time datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">
-						<a href="{{ tweet_url . }}">
-							{{ .CreatedAt.Format "Jan 02, 2006 15:04:05" }}
-						</a>
-					</time>
-				</p>
-			</details>
-		</aside>
-	</article>
-`
-
-var pageIndexFooterTmpl = `
-	</main>
-	{{ if or (.PrevPage) (.NextPage) }}
-	<nav>
-	{{ if .PrevPage}}
-	<a class="prev" href="{{ .PrevPage }}">Previous</a>
-	{{ end }}
-	{{ if .NextPage }}
-	<a class="next" href="{{ .NextPage }}">Next</a>
-	{{ end }}
-	</nav>
-	{{ end }}
-	<footer>
-		<p>rendered with 🦉<a href="https://github.com/darkliquid/twoo">twoo</a></p>
-	</footer>
-	</body>
-	</html>
-`
+	return tmplCache
+}
 
 type PageData struct {
 	Profile    *twitwoo.Profile
@@ -241,6 +51,21 @@ type PageData struct {
 	PageSize   int64
 	PageCount  int64
 	TweetCount int64
+}
+
+// Stylesheet writes the stylesheet to the given writer.
+func Stylesheet(data *twitwoo.Data, w io.Writer) error {
+	profiles, err := data.Profiles()
+	if err != nil {
+		return err
+	}
+	if len(profiles) < 1 {
+		return errors.New("no profiles found")
+	}
+
+	pd := PageData{Profile: profiles[0]}
+
+	return templateCache(data).Lookup("stylesheet.tmpl").Execute(w, pd)
 }
 
 // Index write a page of multiple items.
@@ -292,8 +117,8 @@ func Page(data *twitwoo.Data, id int64, w io.Writer) error {
 
 type filterFunc func(*twitwoo.Tweet) *twitwoo.Tweet
 
-func renderTweets(data *twitwoo.Data, pd PageData, filter filterFunc, funcMap template.FuncMap, w io.Writer) error {
-	tweet := template.Must(template.New("tweet").Funcs(funcMap).Parse(pageIndexTweetTmpl))
+func renderTweets(data *twitwoo.Data, pd PageData, filter filterFunc, w io.Writer) error {
+	tweet := templateCache(data).Lookup("tweet.tmpl")
 
 	// TODO:This is an incredibly naive implementation, but for live serving
 	// is probably fine. Maybe find some way to index deeper into the json data
@@ -342,8 +167,6 @@ func render(data *twitwoo.Data, pd PageData, fn func(*twitwoo.Tweet) *twitwoo.Tw
 		return err
 	}
 
-	funcMap := FuncMap(m)
-
 	profiles, err := data.Profiles()
 	if err != nil {
 		return err
@@ -355,16 +178,16 @@ func render(data *twitwoo.Data, pd PageData, fn func(*twitwoo.Tweet) *twitwoo.Tw
 	pd.UserInfo = m.UserInfo
 	pd.Profile = profiles[0]
 
-	header := template.Must(template.New("header").Funcs(funcMap).Parse(pageIndexHeaderTmpl))
+	header := templateCache(data).Lookup("header.tmpl")
 	if err = header.Execute(w, pd); err != nil {
 		return err
 	}
 
-	if err = renderTweets(data, pd, fn, funcMap, w); err != nil {
+	if err = renderTweets(data, pd, fn, w); err != nil {
 		return err
 	}
 
-	footer := template.Must(template.New("footer").Funcs(funcMap).Parse(pageIndexFooterTmpl))
+	footer := templateCache(data).Lookup("footer.tmpl")
 	return footer.Execute(w, pd)
 }
 
@@ -375,14 +198,7 @@ func Content(data *twitwoo.Data, pd PageData, fn contentFunc, w io.Writer) error
 
 // Tweet renders a singular tweet without wrapper HTML for the rest of a page.
 func Tweet(data *twitwoo.Data, tw *twitwoo.Tweet, w io.Writer) error {
-	m, err := data.Manifest()
-	if err != nil {
-		return err
-	}
-
-	funcMap := FuncMap(m)
-
-	return template.Must(template.New("tweet").Funcs(funcMap).Parse(pageIndexTweetTmpl)).Execute(w, tw)
+	return templateCache(data).Lookup("tweet.tmpl").Execute(w, tw)
 }
 
 type contentFunc func(data *twitwoo.Data, pd PageData, w io.Writer) error
@@ -392,8 +208,6 @@ func wrapper(data *twitwoo.Data, pd PageData, fn contentFunc, w io.Writer) error
 	if err != nil {
 		return err
 	}
-
-	funcMap := FuncMap(m)
 
 	profiles, err := data.Profiles()
 	if err != nil {
@@ -406,7 +220,7 @@ func wrapper(data *twitwoo.Data, pd PageData, fn contentFunc, w io.Writer) error
 	pd.UserInfo = m.UserInfo
 	pd.Profile = profiles[0]
 
-	header := template.Must(template.New("header").Funcs(funcMap).Parse(pageIndexHeaderTmpl))
+	header := templateCache(data).Lookup("header.tmpl")
 	if err = header.Execute(w, pd); err != nil {
 		return err
 	}
@@ -415,6 +229,6 @@ func wrapper(data *twitwoo.Data, pd PageData, fn contentFunc, w io.Writer) error
 		return err
 	}
 
-	footer := template.Must(template.New("footer").Funcs(funcMap).Parse(pageIndexFooterTmpl))
+	footer := templateCache(data).Lookup("footer.tmpl")
 	return footer.Execute(w, pd)
 }
