@@ -45,7 +45,7 @@ You can use the completion command to generate shell completions.
 
 ## TODO
 
-[] Enable specifying custom generation templates
-[] Extract default styles into stylesheet
-[] Add some kind of static JavaScript search index?
-[] Add browse by hashtag/date
+ - [ ] Enable specifying custom generation templates
+ - [ ] Extract default styles into stylesheet
+ - [ ] Add some kind of static JavaScript search index?
+ - [ ] Add browse by hashtag/date
