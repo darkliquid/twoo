@@ -38,6 +38,9 @@ Flags for `extract` include:
   | -s          | --sort string      | sort order for tweets (asc or desc) (default "desc")    |
   | -v          | --verbose          | enable verbose output                                   |
   | -c          | --skip-cleanup     | skip cleaning up temporary json files                   |
+  | -m          | --template-dir     | look in this directory for override templates           |
+
+You can list the overridable templates with `twoo generate templates`
 
 `twoo completion`
 
@@ -45,7 +48,7 @@ You can use the completion command to generate shell completions.
 
 ## TODO
 
- - [ ] Enable specifying custom generation templates
- - [ ] Extract default styles into stylesheet
+ - [x] Enable specifying custom generation templates
+ - [x] Extract default styles into stylesheet
  - [ ] Add some kind of static JavaScript search index?
  - [ ] Add browse by hashtag/date
