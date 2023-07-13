@@ -1,0 +1,16 @@
+</main>
+{{ if or (.PrevPage) (.NextPage) }}
+<nav>
+{{ if .PrevPage}}
+<a class="prev" href="{{ .PrevPage }}">Previous</a>
+{{ end }}
+{{ if .NextPage }}
+<a class="next" href="{{ .NextPage }}">Next</a>
+{{ end }}
+</nav>
+{{ end }}
+<footer>
+  <p>rendered with 🦉<a href="https://github.com/darkliquid/twoo">twoo</a></p>
+</footer>
+</body>
+</html>

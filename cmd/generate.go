@@ -23,6 +23,7 @@ import (
 type generateCfg struct {
 	OutDir          string
 	SortOrder       string
+	TemplateDir     string
 	PageSize        int
 	Verbose         bool
 	IncludeReplies  bool
@@ -45,7 +46,7 @@ to disk and then builds a static HTML website using the extracted data.
 This approach allows for more flexibility in how the data is presented, but is
 more disk intensive as the data is being duplicated.`
 	defaultPageSize = 20
-	outDirMode      = 0755
+	outDirMode      = 0o755
 )
 
 func vlog(args ...any) {
@@ -78,7 +79,7 @@ func genExtractTweets(data *twitwoo.Data) ([]string, error) {
 		}
 
 		dir := tweetDir(t)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err
 		}
 
@@ -157,10 +158,26 @@ var generateCmd = &cobra.Command{
 			return nil
 		}
 
+		if gencfg.TemplateDir != "" {
+			tfs := os.DirFS(gencfg.TemplateDir)
+			website.Templates = tfs
+		}
+
 		// We are operating on the output fs from now on
 		outfs := afero.NewBasePathFs(afero.NewOsFs(), gencfg.OutDir)
 
-		// Step 4: Extract Profile Media
+		// Step 4: Generate the Stylesheet
+		sf, err := outfs.Create("/stylesheet.css")
+		if err != nil {
+			return err
+		}
+		defer sf.Close()
+
+		if err = website.Stylesheet(data, sf); err != nil {
+			return err
+		}
+
+		// Step 5: Extract Profile Media
 		m, err := data.Manifest()
 		if err != nil {
 			return err
@@ -185,7 +202,7 @@ var generateCmd = &cobra.Command{
 			}
 		}
 
-		// Step 5: Iterate over the tweets on the file system if we haven't already
+		// Step 6: Iterate over the tweets on the file system if we haven't already
 		// determined them via extraction.
 		if len(files) == 0 {
 			if err = filepath.WalkDir(gencfg.OutDir, func(path string, d fs.DirEntry, err error) error {
@@ -210,13 +227,13 @@ var generateCmd = &cobra.Command{
 			}
 		}
 
-		// Step 6: Sort the files based on sort order (they are lexographically sorted by default
+		// Step 7: Sort the files based on sort order (they are lexographically sorted by default
 		// which will result is ascending chronological order due to the naming conventions).
 		if gencfg.SortOrder == "desc" {
 			sort.Sort(sort.Reverse(sort.StringSlice(files)))
 		}
 
-		// Step 7: Create detail pages for each tweet
+		// Step 8: Create detail pages for each tweet
 		if !gencfg.SkipDetails {
 			for i, f := range files {
 				var prev, next string
@@ -234,7 +251,7 @@ var generateCmd = &cobra.Command{
 			vlog("Skipping detail page generation")
 		}
 
-		// Step 8: Group files into pages based on page size
+		// Step 9: Group files into pages based on page size
 		pageNum := int64(1)
 		removals := make([]string, len(files))
 		copy(removals, files)
@@ -248,14 +265,14 @@ var generateCmd = &cobra.Command{
 				files = []string{}
 			}
 
-			// Step 9: Generate the HTML for the main feed pages
+			// Step 10: Generate the HTML for the main feed pages
 			if err = genIndexPage(afs, outfs, data, page, pageNum, len(files) > 0); err != nil {
 				return err
 			}
 			pageNum++
 		}
 
-		// Step 9: Cleanup the output directory
+		// Step 11: Cleanup the output directory
 		if !gencfg.SkipCleanup {
 			for _, f := range removals {
 				vlog("Removing", f)
@@ -509,6 +526,19 @@ func init() {
 		false,
 		"skip cleaning up the output directory after generating",
 	)
+	generateCmd.Flags().StringVarP(
+		&gencfg.TemplateDir,
+		"template-dir",
+		"m",
+		"",
+		"directory containing custom templates",
+	)
+	generateCmd.AddCommand(&cobra.Command{
+		Use: "templates",
+		Long: generateCmd.UsageString() +
+			"\nAvailable templates:\n  header.tmpl\n  tweet.tmpl\n  footer.tmpl\n  stylesheet.tmpl\n",
+		Args: cobra.NoArgs,
+	})
 
 	rootCmd.AddCommand(generateCmd)
 }

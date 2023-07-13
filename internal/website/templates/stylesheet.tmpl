@@ -1,0 +1,129 @@
+@import url("http://markdowncss.github.io/retro/css/retro.css");
+
+body {
+  margin: 0;
+  max-width: 100%;
+  padding: 0;
+}
+
+header {
+  {{ $profile_header_url := profile_header_url .Profile }}
+	{{ with $profile_header_url }}
+	background-image: url({{ . }});
+	{{ end }}
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  margin-bottom: 1em;
+  padding-top: 5em;
+}
+
+header h1 {
+  max-width: 48rem;
+  background-color: #222222dd;
+  margin: 0 auto;
+}
+
+header aside {
+  max-width: 48rem;
+  background-color: #222222dd;
+  margin: 0 auto;
+}
+
+header aside figure {
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+}
+
+header aside figure figcaption {
+  margin: 0 1em 1em;
+}
+
+nav {
+  max-width: 48rem;
+  display: flex;
+  margin-bottom: 1em;
+  background-color: #333;
+  margin: 0 auto;
+}
+
+nav a {
+  flex: 1;
+  padding: 0 0.5em;
+}
+
+nav a.prev {
+  text-align: left;
+}
+
+nav a.next {
+  text-align: right;
+}
+
+main {
+  max-width: 48rem;
+  background-color: #222222dd;
+  margin: 0 auto;
+}
+
+main article {
+  padding: 1em 0.5em;
+}
+
+main article > p {
+  margin: 0;
+}
+
+main article ul {
+  display: flex;
+  list-style: none;
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 0;
+}
+
+main article ul li {
+  text-align: center;
+  flex: 1;
+  padding: 1em;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+main article img {
+  min-width: 200px;
+  display: block;
+}
+
+main article + article {
+  border-top: 1px solid #333;
+}
+
+main article aside {
+  text-align: right;
+  color: #333;
+}
+
+main article aside details p {
+  margin: 0;
+}
+
+main article aside details abbr {
+  text-decoration: none;
+}
+
+main article aside details time a {
+  color: #333 !important;
+  text-decoration: none;
+}
+
+main article aside details time a:hover {
+  text-decoration: underline;
+}
+
+footer {
+  max-width: 48rem;
+  text-align: center;
+  margin: 0 auto;
+}
