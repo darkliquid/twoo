@@ -30,6 +30,7 @@ type generateCfg struct {
 	ExtractOnly     bool
 	SkipExtract     bool
 	SkipDetails     bool
+	SkipCleanup     bool
 }
 
 var gencfg generateCfg
@@ -235,6 +236,8 @@ var generateCmd = &cobra.Command{
 
 		// Step 8: Group files into pages based on page size
 		pageNum := int64(1)
+		removals := make([]string, len(files))
+		copy(removals, files)
 		for len(files) > 0 {
 			var page []string
 			if len(files) > gencfg.PageSize {
@@ -250,6 +253,16 @@ var generateCmd = &cobra.Command{
 				return err
 			}
 			pageNum++
+		}
+
+		// Step 9: Cleanup the output directory
+		if !gencfg.SkipCleanup {
+			for _, f := range removals {
+				vlog("Removing", f)
+				if err = outfs.Remove(f); err != nil {
+					vlog("Failed to remove", f, ":", err)
+				}
+			}
 		}
 
 		return nil
@@ -488,6 +501,13 @@ func init() {
 		"k",
 		false,
 		"skip the extraction step and only build the static site",
+	)
+	generateCmd.Flags().BoolVarP(
+		&gencfg.SkipCleanup,
+		"skip-cleanup",
+		"c",
+		false,
+		"skip cleaning up the output directory after generating",
 	)
 
 	rootCmd.AddCommand(generateCmd)
