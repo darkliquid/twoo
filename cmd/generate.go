@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -32,6 +33,7 @@ type generateCfg struct {
 	SkipExtract     bool
 	SkipDetails     bool
 	SkipCleanup     bool
+	SearchIndex     bool
 }
 
 var gencfg generateCfg
@@ -55,10 +57,25 @@ func vlog(args ...any) {
 	}
 }
 
-func genExtractTweets(data *twitwoo.Data) ([]string, error) {
+func genExtractTweets(outfs afero.Fs, data *twitwoo.Data) ([]string, error) {
 	var files []string
 	replies := int64(0)
 	retweets := int64(0)
+
+	var searchIdx afero.File
+	if gencfg.SearchIndex {
+		website.EnableSearch = true
+		var err error
+		searchIdx, err = outfs.Create("search.json")
+		if err != nil {
+			return nil, err
+		}
+		defer searchIdx.Close()
+
+		if _, err = searchIdx.WriteString("["); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := data.EachTweet(func(t *twitwoo.Tweet) error {
 		if t.InReplyToStatusID > 0 {
@@ -79,7 +96,7 @@ func genExtractTweets(data *twitwoo.Data) ([]string, error) {
 		}
 
 		dir := tweetDir(t)
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, outDirMode); err != nil {
 			return err
 		}
 
@@ -96,6 +113,15 @@ func genExtractTweets(data *twitwoo.Data) ([]string, error) {
 			return err
 		}
 
+		if gencfg.SearchIndex {
+			if err := json.NewEncoder(searchIdx).Encode(t.SearchIndex()); err != nil {
+				return err
+			}
+			if _, err := searchIdx.WriteString(","); err != nil {
+				return err
+			}
+		}
+
 		fp = strings.TrimPrefix(fp, gencfg.OutDir)
 		vlog("Writing tweet to", fp)
 
@@ -103,6 +129,15 @@ func genExtractTweets(data *twitwoo.Data) ([]string, error) {
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+
+	if gencfg.SearchIndex {
+		if _, err := searchIdx.Seek(-1, io.SeekCurrent); err != nil {
+			return nil, err
+		}
+		if _, err := searchIdx.WriteString("]"); err != nil {
+			return nil, err
+		}
 	}
 
 	vlogExtracted(int64(len(files)), replies, retweets)
@@ -140,13 +175,20 @@ var generateCmd = &cobra.Command{
 		}
 		defer closer() //nolint:errcheck // nothing we can do about this
 
+		if err := os.MkdirAll(gencfg.OutDir, outDirMode); err != nil {
+			return err
+		}
+
+		// Setup the output directory
+		outfs := afero.NewBasePathFs(afero.NewOsFs(), gencfg.OutDir)
+
 		// Step 2: Init the data parser
 		data := twitwoo.New(afs)
 
 		// Step 3: Extract the tweets
 		var files []string
 		if !gencfg.SkipExtract {
-			if files, err = genExtractTweets(data); err != nil {
+			if files, err = genExtractTweets(outfs, data); err != nil {
 				return err
 			}
 		} else {
@@ -162,9 +204,6 @@ var generateCmd = &cobra.Command{
 			tfs := os.DirFS(gencfg.TemplateDir)
 			website.Templates = tfs
 		}
-
-		// We are operating on the output fs from now on
-		outfs := afero.NewBasePathFs(afero.NewOsFs(), gencfg.OutDir)
 
 		// Step 4: Generate the Stylesheet
 		sf, err := outfs.Create("/stylesheet.css")
@@ -534,11 +573,53 @@ func init() {
 		"directory containing custom templates",
 	)
 	generateCmd.AddCommand(&cobra.Command{
-		Use: "templates",
+		Use: "templates [template output dir]",
 		Long: generateCmd.UsageString() +
 			"\nAvailable templates:\n  header.tmpl\n  tweet.tmpl\n  footer.tmpl\n  stylesheet.tmpl\n",
-		Args: cobra.NoArgs,
+		Args: cobra.RangeArgs(0, 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				cmd.Usage()
+				fmt.Println(cmd.Long)
+				return nil
+			}
+
+			// Write out the embedded templates so they can be used as a base to customise.
+			efs := website.BuiltInTemplates()
+			fs.WalkDir(efs, ".", func(fp string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if d.IsDir() {
+					return nil
+				}
+
+				f, err := efs.Open(fp)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+
+				outfile, err := os.Create(filepath.Join(args[0], path.Base(fp)))
+				if err != nil {
+					return err
+				}
+				defer outfile.Close()
+
+				_, err = io.Copy(outfile, f)
+				return err
+			})
+
+			return nil
+		},
 	})
+	generateCmd.Flags().BoolVarP(
+		&gencfg.SearchIndex,
+		"search-index",
+		"i",
+		false,
+		"generate a tinysearch index",
+	)
 
 	rootCmd.AddCommand(generateCmd)
 }

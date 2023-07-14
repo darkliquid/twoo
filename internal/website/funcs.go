@@ -104,6 +104,65 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 			y, m, d := t.CreatedAt.Date()
 			return fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, t.ID)
 		},
+		"search_js": func() template.HTML {
+			if !EnableSearch {
+				return ""
+			}
+
+			return template.HTML(`
+  <script type="module">
+    import { search, default as init } from '/tinysearch_engine.js';
+    window.search = search;
+
+    async function run() {
+      await init('/tinysearch_engine_bg.wasm');
+    }
+
+    run();
+  </script>
+
+  <script>
+    function doSearch() {
+      let value = document.getElementById("search").value;
+      const results = search(value, 5);
+      let ul = document.getElementById("search-results");
+      ul.innerHTML = "";
+	  ul.style.display = "none";
+
+      for (i = 0; i < results.length; i++) {
+        var li = document.createElement("li");
+
+        let [title, url] = results[i];
+        let elemlink = document.createElement('a');
+        elemlink.innerHTML = title;
+        elemlink.setAttribute('href', url);
+        li.appendChild(elemlink);
+
+        ul.appendChild(li);
+      }
+	  if (results.length > 0) {
+		ul.style.display = "block";
+	  }
+    }
+  </script>
+			`) //nolint:gosec // input is trusted
+		},
+		"searchbox": func() template.HTML {
+			if !EnableSearch {
+				return ""
+			}
+
+			return template.HTML(`
+<input type="text" id="search" onkeyup="doSearch()" placeholder="Search...">
+`)
+		},
+		"search_results": func() template.HTML {
+			if !EnableSearch {
+				return ""
+			}
+
+			return template.HTML(`<ul id="search-results"></ul>`)
+		},
 	}
 }
 

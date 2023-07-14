@@ -26,21 +26,31 @@ sorting tweets chronologically or including replies or retweets.
 
 Flags for `extract` include:
 
-  | Short Flags | Long Flags         | Description                                             |
-  | ----------- | ------------------ | ------------------------------------------------------- |
-  | -e          | --extract-only     | only extract the tweets, don't build the static site    |
-  | -h          | --help             | help for generate                                       |
-  | -r          | --include-replies  | include replies in the output                           |
-  | -t          | --include-retweets | include retweets in the output                          |
-  | -o          | --out string       | where to write the static site to (default ".")         |
-  | -p          | --page-size int    | how many tweets to include per page (default 20)        |
-  | -k          | --skip-extract     | skip the extraction step and only build the static site |
-  | -s          | --sort string      | sort order for tweets (asc or desc) (default "desc")    |
-  | -v          | --verbose          | enable verbose output                                   |
-  | -c          | --skip-cleanup     | skip cleaning up temporary json files                   |
-  | -m          | --template-dir     | look in this directory for override templates           |
+| Short Flags | Long Flags         | Description                                                           |
+| ----------- | ------------------ | --------------------------------------------------------------------- |
+| -e          | --extract-only     | only extract the tweets, don't build the static site                  |
+| -h          | --help             | help for generate                                                     |
+| -r          | --include-replies  | include replies in the output                                         |
+| -t          | --include-retweets | include retweets in the output                                        |
+| -o          | --out string       | where to write the static site to (default ".")                       |
+| -p          | --page-size int    | how many tweets to include per page (default 20)                      |
+| -k          | --skip-extract     | skip the extraction step and only build the static site               |
+| -s          | --sort string      | sort order for tweets (asc or desc) (default "desc")                  |
+| -v          | --verbose          | enable verbose output                                                 |
+| -c          | --skip-cleanup     | skip cleaning up temporary json files                                 |
+| -m          | --template-dir     | look in this directory for override templates                         |
+| -i          | --search-index     | create a search index file and enable search in the default templates |
 
-You can list the overridable templates with `twoo generate templates`
+You can list the overridable templates with `twoo generate templates` and write them out to disk by also passing a directory.
+
+Write the search index only creates an input file for an actual static search generation tool.
+To generate the actual search javascript and compressed index file, use [tinysearch][1] like so:
+
+```
+tinysearch -p out -o out/search.json
+```
+
+Where `out` is the `generate` output dir.
 
 `twoo completion`
 
@@ -50,10 +60,10 @@ You can use the completion command to generate shell completions.
 
 The generate command uses 4 templates to render the static site. They are:
 
- - `header.tmpl` - top half of every page
- - `footer.tmpl` - bottom half of every page
- - `tweet.tmpl` - template for each tweet
- - `stylesheet.tmpl` - template for the stylesheet
+-   `header.tmpl` - top half of every page
+-   `footer.tmpl` - bottom half of every page
+-   `tweet.tmpl` - template for each tweet
+-   `stylesheet.tmpl` - template for the stylesheet
 
 The templates all take the same `PageData` data except for `tweet.tmpl` which takes a `Tweet` object. The same functions are available to all templates.
 
@@ -134,7 +144,9 @@ Accepts a `Tweet` objects and returns the url to that specific status.
 
 ## TODO
 
- - [x] Enable specifying custom generation templates
- - [x] Extract default styles into stylesheet
- - [ ] Add some kind of static JavaScript search index?
- - [ ] Add browse by hashtag/date
+-   [x] Enable specifying custom generation templates
+-   [x] Extract default styles into stylesheet
+-   [x] Add some kind of static JavaScript search index?
+-   [ ] Add browse by hashtag/date
+
+[1]: https://github.com/tinysearch/tinysearch
