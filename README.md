@@ -142,6 +142,18 @@ Accepts a `Profile` object and returns the url to the asset.
 
 Accepts a `Tweet` objects and returns the url to that specific status.
 
+#### `search_js`
+
+Adds script tags for static search service (use this in `<head>`).
+
+#### `searchbox`
+
+Renders the search input box.
+
+#### `search_results`
+
+Renders the search results area.
+
 ## TODO
 
 -   [x] Enable specifying custom generation templates
