@@ -14,7 +14,7 @@ import (
 //go:embed templates
 var builtinTmpl embed.FS
 
-// Templates is an optional set of templates to use
+// Templates is an optional set of templates to use.
 var Templates fs.FS
 
 // EnableSearch enables the search functionality.

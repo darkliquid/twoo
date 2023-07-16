@@ -145,7 +145,7 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 	  }
     }
   </script>
-			`) //nolint:gosec // input is trusted
+			`)
 		},
 		"searchbox": func() template.HTML {
 			if !EnableSearch {

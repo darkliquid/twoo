@@ -57,6 +57,59 @@ func vlog(args ...any) {
 	}
 }
 
+func extractTweet(searchIdx afero.File, t *twitwoo.Tweet) (int64, int64, string, error) {
+	replies := int64(0)
+	retweets := int64(0)
+	if t.InReplyToStatusID > 0 {
+		// TODO: handle threads separately.
+		replies++
+		if !gencfg.IncludeReplies {
+			vlog("Skipping reply", t.ID)
+			return replies, retweets, "", nil
+		}
+	}
+
+	if strings.HasPrefix(t.FullText, "RT ") {
+		retweets++
+		if !gencfg.IncludeRetweets {
+			vlog("Skipping retweet", t.ID)
+			return replies, retweets, "", nil
+		}
+	}
+
+	dir := tweetDir(t)
+	if err := os.MkdirAll(dir, outDirMode); err != nil {
+		return replies, retweets, "", err
+	}
+
+	// ensure the tweet ID is 20 characters long for easier sorting
+	fn := fmt.Sprintf("%020d.json", t.ID)
+	fp := filepath.Join(dir, fn)
+	f, ferr := os.Create(fp)
+	if ferr != nil {
+		return replies, retweets, "", ferr
+	}
+	defer f.Close()
+
+	if err := json.NewEncoder(f).Encode(t); err != nil {
+		return replies, retweets, "", err
+	}
+
+	if gencfg.SearchIndex {
+		if err := json.NewEncoder(searchIdx).Encode(t.SearchIndex()); err != nil {
+			return replies, retweets, "", err
+		}
+		if _, err := searchIdx.WriteString(","); err != nil {
+			return replies, retweets, "", err
+		}
+	}
+
+	fp = strings.TrimPrefix(fp, gencfg.OutDir)
+	vlog("Writing tweet to", fp)
+
+	return replies, retweets, fp, nil
+}
+
 func genExtractTweets(outfs afero.Fs, data *twitwoo.Data) ([]string, error) {
 	var files []string
 	replies := int64(0)
@@ -78,55 +131,13 @@ func genExtractTweets(outfs afero.Fs, data *twitwoo.Data) ([]string, error) {
 	}
 
 	if err := data.EachTweet(func(t *twitwoo.Tweet) error {
-		if t.InReplyToStatusID > 0 {
-			// TODO: handle threads separately.
-			replies++
-			if !gencfg.IncludeReplies {
-				vlog("Skipping reply", t.ID)
-				return nil
-			}
+		reply, retweet, fp, err := extractTweet(searchIdx, t)
+		replies += reply
+		retweets += retweet
+		if fp != "" {
+			files = append(files, fp)
 		}
-
-		if strings.HasPrefix(t.FullText, "RT ") {
-			retweets++
-			if !gencfg.IncludeRetweets {
-				vlog("Skipping retweet", t.ID)
-				return nil
-			}
-		}
-
-		dir := tweetDir(t)
-		if err := os.MkdirAll(dir, outDirMode); err != nil {
-			return err
-		}
-
-		// ensure the tweet ID is 20 characters long for easier sorting
-		fn := fmt.Sprintf("%020d.json", t.ID)
-		fp := filepath.Join(dir, fn)
-		f, ferr := os.Create(fp)
-		if ferr != nil {
-			return ferr
-		}
-		defer f.Close()
-
-		if err := json.NewEncoder(f).Encode(t); err != nil {
-			return err
-		}
-
-		if gencfg.SearchIndex {
-			if err := json.NewEncoder(searchIdx).Encode(t.SearchIndex()); err != nil {
-				return err
-			}
-			if _, err := searchIdx.WriteString(","); err != nil {
-				return err
-			}
-		}
-
-		fp = strings.TrimPrefix(fp, gencfg.OutDir)
-		vlog("Writing tweet to", fp)
-
-		files = append(files, fp)
-		return nil
+		return err
 	}); err != nil {
 		return nil, err
 	}
@@ -175,7 +186,7 @@ var generateCmd = &cobra.Command{
 		}
 		defer closer() //nolint:errcheck // nothing we can do about this
 
-		if err := os.MkdirAll(gencfg.OutDir, outDirMode); err != nil {
+		if err = os.MkdirAll(gencfg.OutDir, outDirMode); err != nil {
 			return err
 		}
 
@@ -502,6 +513,12 @@ func tweetDir(t *twitwoo.Tweet) string {
 }
 
 func init() {
+	initGenFlags()
+	initGenSubcommands()
+	rootCmd.AddCommand(generateCmd)
+}
+
+func initGenFlags() {
 	generateCmd.Flags().StringVarP(
 		&gencfg.OutDir,
 		"out",
@@ -572,6 +589,16 @@ func init() {
 		"",
 		"directory containing custom templates",
 	)
+	generateCmd.Flags().BoolVarP(
+		&gencfg.SearchIndex,
+		"search-index",
+		"i",
+		false,
+		"generate a tinysearch index",
+	)
+}
+
+func initGenSubcommands() {
 	generateCmd.AddCommand(&cobra.Command{
 		Use: "templates [template output dir]",
 		Long: generateCmd.UsageString() +
@@ -579,14 +606,14 @@ func init() {
 		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				cmd.Usage()
+				err := cmd.Usage()
 				fmt.Println(cmd.Long)
-				return nil
+				return err
 			}
 
 			// Write out the embedded templates so they can be used as a base to customise.
 			efs := website.BuiltInTemplates()
-			fs.WalkDir(efs, ".", func(fp string, d fs.DirEntry, err error) error {
+			err := fs.WalkDir(efs, ".", func(fp string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
@@ -610,16 +637,7 @@ func init() {
 				return err
 			})
 
-			return nil
+			return err
 		},
 	})
-	generateCmd.Flags().BoolVarP(
-		&gencfg.SearchIndex,
-		"search-index",
-		"i",
-		false,
-		"generate a tinysearch index",
-	)
-
-	rootCmd.AddCommand(generateCmd)
 }
