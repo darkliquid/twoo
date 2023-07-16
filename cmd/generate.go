@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -32,6 +33,7 @@ type generateCfg struct {
 	SkipExtract     bool
 	SkipDetails     bool
 	SkipCleanup     bool
+	SearchIndex     bool
 }
 
 var gencfg generateCfg
@@ -55,54 +57,98 @@ func vlog(args ...any) {
 	}
 }
 
-func genExtractTweets(data *twitwoo.Data) ([]string, error) {
+func extractTweet(searchIdx afero.File, t *twitwoo.Tweet) (int64, int64, string, error) {
+	replies := int64(0)
+	retweets := int64(0)
+	if t.InReplyToStatusID > 0 {
+		// TODO: handle threads separately.
+		replies++
+		if !gencfg.IncludeReplies {
+			vlog("Skipping reply", t.ID)
+			return replies, retweets, "", nil
+		}
+	}
+
+	if strings.HasPrefix(t.FullText, "RT ") {
+		retweets++
+		if !gencfg.IncludeRetweets {
+			vlog("Skipping retweet", t.ID)
+			return replies, retweets, "", nil
+		}
+	}
+
+	dir := tweetDir(t)
+	if err := os.MkdirAll(dir, outDirMode); err != nil {
+		return replies, retweets, "", err
+	}
+
+	// ensure the tweet ID is 20 characters long for easier sorting
+	fn := fmt.Sprintf("%020d.json", t.ID)
+	fp := filepath.Join(dir, fn)
+	f, ferr := os.Create(fp)
+	if ferr != nil {
+		return replies, retweets, "", ferr
+	}
+	defer f.Close()
+
+	if err := json.NewEncoder(f).Encode(t); err != nil {
+		return replies, retweets, "", err
+	}
+
+	if gencfg.SearchIndex {
+		if err := json.NewEncoder(searchIdx).Encode(t.SearchIndex()); err != nil {
+			return replies, retweets, "", err
+		}
+		if _, err := searchIdx.WriteString(","); err != nil {
+			return replies, retweets, "", err
+		}
+	}
+
+	fp = strings.TrimPrefix(fp, gencfg.OutDir)
+	vlog("Writing tweet to", fp)
+
+	return replies, retweets, fp, nil
+}
+
+func genExtractTweets(outfs afero.Fs, data *twitwoo.Data) ([]string, error) {
 	var files []string
 	replies := int64(0)
 	retweets := int64(0)
 
+	var searchIdx afero.File
+	if gencfg.SearchIndex {
+		website.EnableSearch = true
+		var err error
+		searchIdx, err = outfs.Create("search.json")
+		if err != nil {
+			return nil, err
+		}
+		defer searchIdx.Close()
+
+		if _, err = searchIdx.WriteString("["); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := data.EachTweet(func(t *twitwoo.Tweet) error {
-		if t.InReplyToStatusID > 0 {
-			// TODO: handle threads separately.
-			replies++
-			if !gencfg.IncludeReplies {
-				vlog("Skipping reply", t.ID)
-				return nil
-			}
+		reply, retweet, fp, err := extractTweet(searchIdx, t)
+		replies += reply
+		retweets += retweet
+		if fp != "" {
+			files = append(files, fp)
 		}
-
-		if strings.HasPrefix(t.FullText, "RT ") {
-			retweets++
-			if !gencfg.IncludeRetweets {
-				vlog("Skipping retweet", t.ID)
-				return nil
-			}
-		}
-
-		dir := tweetDir(t)
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return err
-		}
-
-		// ensure the tweet ID is 20 characters long for easier sorting
-		fn := fmt.Sprintf("%020d.json", t.ID)
-		fp := filepath.Join(dir, fn)
-		f, ferr := os.Create(fp)
-		if ferr != nil {
-			return ferr
-		}
-		defer f.Close()
-
-		if err := json.NewEncoder(f).Encode(t); err != nil {
-			return err
-		}
-
-		fp = strings.TrimPrefix(fp, gencfg.OutDir)
-		vlog("Writing tweet to", fp)
-
-		files = append(files, fp)
-		return nil
+		return err
 	}); err != nil {
 		return nil, err
+	}
+
+	if gencfg.SearchIndex {
+		if _, err := searchIdx.Seek(-1, io.SeekCurrent); err != nil {
+			return nil, err
+		}
+		if _, err := searchIdx.WriteString("]"); err != nil {
+			return nil, err
+		}
 	}
 
 	vlogExtracted(int64(len(files)), replies, retweets)
@@ -140,13 +186,20 @@ var generateCmd = &cobra.Command{
 		}
 		defer closer() //nolint:errcheck // nothing we can do about this
 
+		if err = os.MkdirAll(gencfg.OutDir, outDirMode); err != nil {
+			return err
+		}
+
+		// Setup the output directory
+		outfs := afero.NewBasePathFs(afero.NewOsFs(), gencfg.OutDir)
+
 		// Step 2: Init the data parser
 		data := twitwoo.New(afs)
 
 		// Step 3: Extract the tweets
 		var files []string
 		if !gencfg.SkipExtract {
-			if files, err = genExtractTweets(data); err != nil {
+			if files, err = genExtractTweets(outfs, data); err != nil {
 				return err
 			}
 		} else {
@@ -162,9 +215,6 @@ var generateCmd = &cobra.Command{
 			tfs := os.DirFS(gencfg.TemplateDir)
 			website.Templates = tfs
 		}
-
-		// We are operating on the output fs from now on
-		outfs := afero.NewBasePathFs(afero.NewOsFs(), gencfg.OutDir)
 
 		// Step 4: Generate the Stylesheet
 		sf, err := outfs.Create("/stylesheet.css")
@@ -463,6 +513,12 @@ func tweetDir(t *twitwoo.Tweet) string {
 }
 
 func init() {
+	initGenFlags()
+	initGenSubcommands()
+	rootCmd.AddCommand(generateCmd)
+}
+
+func initGenFlags() {
 	generateCmd.Flags().StringVarP(
 		&gencfg.OutDir,
 		"out",
@@ -533,12 +589,55 @@ func init() {
 		"",
 		"directory containing custom templates",
 	)
+	generateCmd.Flags().BoolVarP(
+		&gencfg.SearchIndex,
+		"search-index",
+		"i",
+		false,
+		"generate a tinysearch index",
+	)
+}
+
+func initGenSubcommands() {
 	generateCmd.AddCommand(&cobra.Command{
-		Use: "templates",
+		Use: "templates [template output dir]",
 		Long: generateCmd.UsageString() +
 			"\nAvailable templates:\n  header.tmpl\n  tweet.tmpl\n  footer.tmpl\n  stylesheet.tmpl\n",
-		Args: cobra.NoArgs,
-	})
+		Args: cobra.RangeArgs(0, 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				err := cmd.Usage()
+				fmt.Println(cmd.Long)
+				return err
+			}
 
-	rootCmd.AddCommand(generateCmd)
+			// Write out the embedded templates so they can be used as a base to customise.
+			efs := website.BuiltInTemplates()
+			err := fs.WalkDir(efs, ".", func(fp string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if d.IsDir() {
+					return nil
+				}
+
+				f, err := efs.Open(fp)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+
+				outfile, err := os.Create(filepath.Join(args[0], path.Base(fp)))
+				if err != nil {
+					return err
+				}
+				defer outfile.Close()
+
+				_, err = io.Copy(outfile, f)
+				return err
+			})
+
+			return err
+		},
+	})
 }

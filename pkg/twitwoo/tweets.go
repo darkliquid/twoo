@@ -1,6 +1,8 @@
 package twitwoo
 
 import (
+	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -9,6 +11,8 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 )
+
+var tcoRE = regexp.MustCompile(`https?://t\.co/[A-Z0-9a-z]+`)
 
 //nolint:gocognit // Big function, but not complex - straightforward JSON parsing.
 func registerTweetDecoders() {
@@ -205,6 +209,21 @@ type Tweet struct {
 	ID                int64           `json:"id"`
 	RetweetCount      int64           `json:"retweet_count"`
 	FavoriteCount     int64           `json:"favorite_count"`
+}
+
+// TweetSearchIndex represents a search index entry for a tweet.
+type TweetSearchIndex struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+// SearchIndex returns a search index entry for a tweet.
+func (t *Tweet) SearchIndex() TweetSearchIndex {
+	y, m, d := t.CreatedAt.Date()
+	return TweetSearchIndex{
+		Title: strings.TrimSpace(tcoRE.ReplaceAllString(t.FullText, "")),
+		URL:   fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, t.ID),
+	}
 }
 
 // Tweets returns a slice of tweets.

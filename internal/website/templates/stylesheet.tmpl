@@ -6,6 +6,24 @@ body {
   padding: 0;
 }
 
+#search {
+  position: fixed;
+  top: 0;
+  right: 0;
+}
+
+#search-results {
+  display: none;
+  list-style: none;
+  padding: 1em 0;
+  margin: 0;
+  border-bottom: 26px solid #333;
+}
+
+#search-results li {
+  margin-bottom: 1em;
+}
+
 header {
   {{ $profile_header_url := profile_header_url .Profile }}
 	{{ with $profile_header_url }}

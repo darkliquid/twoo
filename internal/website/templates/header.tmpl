@@ -4,6 +4,7 @@
 	<meta charset="utf-8">
 	<title>@{{ .UserInfo.UserName }}{{ if gt .PageCount 0 }} - {{ .Page }}/{{ .PageCount }}{{ end }}</title>
 	<link rel="stylesheet" href="/stylesheet.css">
+  {{ search_js }}
 	</head>
 	<body>
 	<header>
@@ -38,6 +39,7 @@
 				</figcaption>
 			</figure>
 		</aside>
+    {{ searchbox }}
 	</header>
 	{{ if or (.PrevPage) (.NextPage) }}
 	<nav>
@@ -50,4 +52,4 @@
 	</nav>
 	{{ end }}
 	<main>
-
+  {{ search_results }}
