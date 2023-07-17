@@ -18,7 +18,7 @@ everything as JSON.
 
 You can list the available datatypes with `twoo extract datatypes`
 
-`twoo generate [-i -e -r -t -o -p -k -s -v -c] archive|extracted_archive_dir`
+`twoo generate [-i -e -r -t -o -p -k -s -v -c -g -d] archive|extracted_archive_dir`
 
 The `generate` command works like `serve`, but instead of hosting a site, it
 builds it statically on disk. This also allows for more powerful options, like
@@ -155,5 +155,9 @@ Renders the search input box.
 #### `search_results`
 
 Renders the search results area.
+
+#### `stylesheet_url`
+
+Returns the URL to the stylesheet.
 
 [1]: https://github.com/tinysearch/tinysearch
