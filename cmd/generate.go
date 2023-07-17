@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gosimple/slug"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
@@ -34,6 +35,7 @@ type generateCfg struct {
 	SkipDetails     bool
 	SkipCleanup     bool
 	SearchIndex     bool
+	MakeTagPages    bool
 }
 
 var gencfg generateCfg
@@ -110,8 +112,9 @@ func extractTweet(searchIdx afero.File, t *twitwoo.Tweet) (int64, int64, string,
 	return replies, retweets, fp, nil
 }
 
-func genExtractTweets(outfs afero.Fs, data *twitwoo.Data) ([]string, error) {
+func genExtractTweets(outfs afero.Fs, data *twitwoo.Data) (map[string][]string, []string, error) {
 	var files []string
+	tagPages := make(map[string][]string)
 	replies := int64(0)
 	retweets := int64(0)
 
@@ -121,12 +124,12 @@ func genExtractTweets(outfs afero.Fs, data *twitwoo.Data) ([]string, error) {
 		var err error
 		searchIdx, err = outfs.Create("search.json")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		defer searchIdx.Close()
 
 		if _, err = searchIdx.WriteString("["); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -136,24 +139,30 @@ func genExtractTweets(outfs afero.Fs, data *twitwoo.Data) ([]string, error) {
 		retweets += retweet
 		if fp != "" {
 			files = append(files, fp)
+			if gencfg.MakeTagPages {
+				for _, tag := range t.Hashtags {
+					tag = slug.Make(tag)
+					tagPages[tag] = append(tagPages[tag], fp)
+				}
+			}
 		}
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if gencfg.SearchIndex {
 		if _, err := searchIdx.Seek(-1, io.SeekCurrent); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if _, err := searchIdx.WriteString("]"); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	vlogExtracted(int64(len(files)), replies, retweets)
 
-	return files, nil
+	return tagPages, files, nil
 }
 
 func vlogExtracted(tweets, replies, retweets int64) {
@@ -179,7 +188,7 @@ var generateCmd = &cobra.Command{
 	Long:  generateHelp,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Step 1: Open the archive
+		// Open the archive
 		afs, closer, err := util.Open(args[0])
 		if err != nil {
 			return err
@@ -193,13 +202,14 @@ var generateCmd = &cobra.Command{
 		// Setup the output directory
 		outfs := afero.NewBasePathFs(afero.NewOsFs(), gencfg.OutDir)
 
-		// Step 2: Init the data parser
+		// Init the data parser
 		data := twitwoo.New(afs)
 
-		// Step 3: Extract the tweets
+		// Extract the tweets
 		var files []string
+		var tagPages map[string][]string
 		if !gencfg.SkipExtract {
-			if files, err = genExtractTweets(outfs, data); err != nil {
+			if tagPages, files, err = genExtractTweets(outfs, data); err != nil {
 				return err
 			}
 		} else {
@@ -216,7 +226,11 @@ var generateCmd = &cobra.Command{
 			website.Templates = tfs
 		}
 
-		// Step 4: Generate the Stylesheet
+		if gencfg.MakeTagPages {
+			website.UseTagIndex = true
+		}
+
+		// Generate the Stylesheet
 		sf, err := outfs.Create("/stylesheet.css")
 		if err != nil {
 			return err
@@ -227,7 +241,7 @@ var generateCmd = &cobra.Command{
 			return err
 		}
 
-		// Step 5: Extract Profile Media
+		// Extract Profile Media
 		m, err := data.Manifest()
 		if err != nil {
 			return err
@@ -252,7 +266,7 @@ var generateCmd = &cobra.Command{
 			}
 		}
 
-		// Step 6: Iterate over the tweets on the file system if we haven't already
+		// Iterate over the tweets on the file system if we haven't already
 		// determined them via extraction.
 		if len(files) == 0 {
 			if err = filepath.WalkDir(gencfg.OutDir, func(path string, d fs.DirEntry, err error) error {
@@ -277,13 +291,13 @@ var generateCmd = &cobra.Command{
 			}
 		}
 
-		// Step 7: Sort the files based on sort order (they are lexographically sorted by default
+		// Sort the files based on sort order (they are lexographically sorted by default
 		// which will result is ascending chronological order due to the naming conventions).
 		if gencfg.SortOrder == "desc" {
 			sort.Sort(sort.Reverse(sort.StringSlice(files)))
 		}
 
-		// Step 8: Create detail pages for each tweet
+		// Create detail pages for each tweet
 		if !gencfg.SkipDetails {
 			for i, f := range files {
 				var prev, next string
@@ -301,30 +315,22 @@ var generateCmd = &cobra.Command{
 			vlog("Skipping detail page generation")
 		}
 
-		// Step 9: Group files into pages based on page size
-		pageNum := int64(1)
-		removals := make([]string, len(files))
-		copy(removals, files)
-		for len(files) > 0 {
-			var page []string
-			if len(files) > gencfg.PageSize {
-				page = files[:gencfg.PageSize]
-				files = files[gencfg.PageSize:]
-			} else {
-				page = files
-				files = []string{}
+		// Generate tag index pages
+		if gencfg.MakeTagPages {
+			for tag, pages := range tagPages {
+				if err = genIndexPages(afs, outfs, data, pages, path.Join("tag", tag)); err != nil {
+					return err
+				}
 			}
-
-			// Step 10: Generate the HTML for the main feed pages
-			if err = genIndexPage(afs, outfs, data, page, pageNum, len(files) > 0); err != nil {
-				return err
-			}
-			pageNum++
 		}
 
-		// Step 11: Cleanup the output directory
+		if err = genIndexPages(afs, outfs, data, files, ""); err != nil {
+			return err
+		}
+
+		// Cleanup the output directory
 		if !gencfg.SkipCleanup {
-			for _, f := range removals {
+			for _, f := range files {
 				vlog("Removing", f)
 				if err = outfs.Remove(f); err != nil {
 					vlog("Failed to remove", f, ":", err)
@@ -334,6 +340,31 @@ var generateCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func genIndexPages(afs, outfs afero.Fs, data *twitwoo.Data, files []string, prefix string) error {
+	// Group files into pages based on page size
+	pageFiles := make([]string, len(files))
+	copy(pageFiles, files)
+
+	pageNum := int64(1)
+	for len(pageFiles) > 0 {
+		var page []string
+		if len(pageFiles) > gencfg.PageSize {
+			page = pageFiles[:gencfg.PageSize]
+			pageFiles = pageFiles[gencfg.PageSize:]
+		} else {
+			page = pageFiles
+			pageFiles = []string{}
+		}
+
+		// Generate the HTML for the main feed pages
+		if err := genIndexPage(afs, outfs, data, page, prefix, pageNum, len(pageFiles) > 0); err != nil {
+			return err
+		}
+		pageNum++
+	}
+	return nil
 }
 
 func decodeTweet(fs afero.Fs, fn string) (*twitwoo.Tweet, error) {
@@ -448,12 +479,12 @@ func genExtractMedia(srcfs, destfs afero.Fs, tweet *twitwoo.Tweet) error {
 	return nil
 }
 
-func genIndexPage(srcfs, fs afero.Fs, data *twitwoo.Data, fns []string, pageNum int64, hasNext bool) error {
-	vlog("Generating index page", pageNum, "with", len(fns), "tweets")
+func genIndexPage(srcfs, fs afero.Fs, data *twitwoo.Data, fns []string, prefix string, pageNum int64, hasNext bool) error {
+	vlog("Generating index page", prefix, pageNum, "with", len(fns), "tweets")
 
-	outname := "index.html"
+	outname := filepath.Join(prefix, "index.html")
 	if pageNum > 1 {
-		outname = filepath.Join("page", strconv.FormatInt(pageNum, 10), "index.html")
+		outname = filepath.Join(prefix, "page", strconv.FormatInt(pageNum, 10), "index.html")
 	}
 
 	if err := fs.MkdirAll(filepath.Dir(outname), outDirMode); err != nil {
@@ -472,13 +503,13 @@ func genIndexPage(srcfs, fs afero.Fs, data *twitwoo.Data, fns []string, pageNum 
 	}
 
 	if pageNum == 2 { //nolint:gomnd // 2 is the second page
-		pd.PrevPage = "/"
+		pd.PrevPage = path.Join("/", prefix, "/")
 	} else if pageNum > 1 {
-		pd.PrevPage = fmt.Sprintf("/page/%d", pageNum-1)
+		pd.PrevPage = path.Join("/", prefix, fmt.Sprintf("/page/%d", pageNum-1))
 	}
 
 	if hasNext {
-		pd.NextPage = fmt.Sprintf("/page/%d", pageNum+1)
+		pd.NextPage = path.Join("/", prefix, fmt.Sprintf("/page/%d", pageNum+1))
 	}
 
 	return website.Content(data, pd, func(data *twitwoo.Data, _ website.PageData, w io.Writer) error {
@@ -595,6 +626,13 @@ func initGenFlags() {
 		"i",
 		false,
 		"generate a tinysearch index",
+	)
+	generateCmd.Flags().BoolVarP(
+		&gencfg.MakeTagPages,
+		"tag-pages",
+		"g",
+		false,
+		"generate hashtag indexes",
 	)
 }
 

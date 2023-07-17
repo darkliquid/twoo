@@ -6,6 +6,7 @@ require github.com/spf13/viper v1.16.0
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -15,6 +16,7 @@ require (
 require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.10
+	github.com/gosimple/slug v1.13.1
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12
 	github.com/magiconair/properties v1.8.7 // indirect
