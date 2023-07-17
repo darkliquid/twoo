@@ -41,6 +41,7 @@ Flags for `extract` include:
 | -m          | --template-dir     | look in this directory for override templates                         |
 | -i          | --search-index     | create a search index file and enable search in the default templates |
 | -g          | --tag-pages        | create indexes for all hashtags and rewrite hashtag links to them     |
+| -d          | --sub-dir          | set links to be relative to given sub directory                       |
 
 You can list the overridable templates with `twoo generate templates` and write them out to disk by also passing a directory.
 
