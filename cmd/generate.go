@@ -26,16 +26,17 @@ type generateCfg struct {
 	OutDir          string
 	SortOrder       string
 	TemplateDir     string
+	SubDir          string
 	PageSize        int
-	Verbose         bool
-	IncludeReplies  bool
 	IncludeRetweets bool
+	IncludeReplies  bool
 	ExtractOnly     bool
 	SkipExtract     bool
 	SkipDetails     bool
 	SkipCleanup     bool
 	SearchIndex     bool
 	MakeTagPages    bool
+	Verbose         bool
 }
 
 var gencfg generateCfg
@@ -230,6 +231,10 @@ var generateCmd = &cobra.Command{
 			website.UseTagIndex = true
 		}
 
+		if gencfg.SubDir != "" {
+			website.SubDir = path.Join("/", gencfg.SubDir)
+		}
+
 		// Generate the Stylesheet
 		sf, err := outfs.Create("/stylesheet.css")
 		if err != nil {
@@ -400,7 +405,7 @@ func genDetailsPage(fs afero.Fs, data *twitwoo.Data, fn, fnPrev, fnNext string) 
 			return err
 		}
 		y, m, d := prevTweet.CreatedAt.Date()
-		pd.PrevPage = fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, prevTweet.ID)
+		pd.PrevPage = path.Join("/", gencfg.SubDir, fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, prevTweet.ID))
 	}
 
 	if fnNext != "" {
@@ -411,7 +416,7 @@ func genDetailsPage(fs afero.Fs, data *twitwoo.Data, fn, fnPrev, fnNext string) 
 			return err
 		}
 		y, m, d := nextTweet.CreatedAt.Date()
-		pd.NextPage = fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, nextTweet.ID)
+		pd.NextPage = path.Join("/", gencfg.SubDir, fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, nextTweet.ID))
 	}
 
 	y, m, d := tweet.CreatedAt.Date()
@@ -510,13 +515,13 @@ func genIndexPage(
 	}
 
 	if pageNum == 2 { //nolint:gomnd // 2 is the second page
-		pd.PrevPage = path.Join("/", prefix, "/")
+		pd.PrevPage = path.Join("/", gencfg.SubDir, prefix, "/")
 	} else if pageNum > 1 {
-		pd.PrevPage = path.Join("/", prefix, fmt.Sprintf("/page/%d", pageNum-1))
+		pd.PrevPage = path.Join("/", gencfg.SubDir, prefix, fmt.Sprintf("/page/%d", pageNum-1))
 	}
 
 	if hasNext {
-		pd.NextPage = path.Join("/", prefix, fmt.Sprintf("/page/%d", pageNum+1))
+		pd.NextPage = path.Join("/", gencfg.SubDir, prefix, fmt.Sprintf("/page/%d", pageNum+1))
 	}
 
 	return website.Content(data, pd, func(data *twitwoo.Data, _ website.PageData, w io.Writer) error {
@@ -640,6 +645,13 @@ func initGenFlags() {
 		"g",
 		false,
 		"generate hashtag indexes",
+	)
+	generateCmd.Flags().StringVarP(
+		&gencfg.SubDir,
+		"sub-dir",
+		"d",
+		"",
+		"sub dir for the generated site",
 	)
 }
 

@@ -18,11 +18,14 @@ const (
 	linkSubstitution = " <a href=\"$2://$3\">$2://$3</a> "
 )
 
-var UseTagIndex = false
+var (
+	SubDir      = ""
+	UseTagIndex = false
+)
 
 func hashtagLink(tag string) string {
 	if UseTagIndex {
-		return "<a href=\"/tag/" + slug.Make(tag) + "\">#" + tag + "</a>"
+		return "<a href=\"" + SubDir + "/tag/" + slug.Make(tag) + "\">#" + tag + "</a>"
 	}
 	return "<a href=\"https://twitter.com/hashtag/" + tag + "\">#" + tag + "</a>"
 }
@@ -45,7 +48,7 @@ func fancyTweetMedia(t *twitwoo.Tweet) string {
 				continue
 			}
 			mediaList += "<li>"
-			file := TweetMediaPath(t.ID, media)
+			file := path.Join("/", SubDir, TweetMediaPath(t.ID, media))
 			switch media.Type {
 			case "photo":
 				mediaList += fmt.Sprintf(`<img src="%s">`, file)
@@ -99,30 +102,33 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 			if p.Header == "" {
 				return ""
 			}
-			return ProfileMediaPath(m.UserInfo.AccountID, p.Header) + ".jpg"
+			return path.Join("/", SubDir, ProfileMediaPath(m.UserInfo.AccountID, p.Header)+".jpg")
 		},
 		"profile_avatar_url": func(p *twitwoo.Profile) string {
 			if p.Avatar == "" {
 				return ""
 			}
-			return ProfileMediaPath(m.UserInfo.AccountID, p.Avatar)
+			return path.Join("/", SubDir, ProfileMediaPath(m.UserInfo.AccountID, p.Avatar))
 		},
 		"tweet_url": func(t *twitwoo.Tweet) string {
 			y, m, d := t.CreatedAt.Date()
-			return fmt.Sprintf("/%d/%02d/%02d/%020d", y, m, d, t.ID)
+			return fmt.Sprintf("%s/%d/%02d/%02d/%020d", SubDir, y, m, d, t.ID)
+		},
+		"stylesheet_url": func() string {
+			return path.Join(SubDir, "/stylesheet.css")
 		},
 		"search_js": func() template.HTML {
 			if !EnableSearch {
 				return ""
 			}
 
-			return template.HTML(`
+			return template.HTML(fmt.Sprintf(`
   <script type="module">
-    import { search, default as init } from '/tinysearch_engine.js';
+    import { search, default as init } from '%s/tinysearch_engine.js';
     window.search = search;
 
     async function run() {
-      await init('/tinysearch_engine_bg.wasm');
+      await init('%s/tinysearch_engine_bg.wasm');
     }
 
     run();
@@ -152,7 +158,7 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 	  }
     }
   </script>
-			`)
+			`, SubDir, SubDir))
 		},
 		"searchbox": func() template.HTML {
 			if !EnableSearch {

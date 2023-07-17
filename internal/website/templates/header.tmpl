@@ -3,7 +3,7 @@
 	<head>
 	<meta charset="utf-8">
 	<title>@{{ .UserInfo.UserName }}{{ if gt .PageCount 0 }} - {{ .Page }}/{{ .PageCount }}{{ end }}</title>
-	<link rel="stylesheet" href="/stylesheet.css">
+	<link rel="stylesheet" href="{{ stylesheet_url }}">
   {{ search_js }}
 	</head>
 	<body>
