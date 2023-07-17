@@ -40,6 +40,7 @@ Flags for `extract` include:
 | -c          | --skip-cleanup     | skip cleaning up temporary json files                                 |
 | -m          | --template-dir     | look in this directory for override templates                         |
 | -i          | --search-index     | create a search index file and enable search in the default templates |
+| -g          | --tag-pages        | create indexes for all hashtags and rewrite hashtag links to them     |
 
 You can list the overridable templates with `twoo generate templates` and write them out to disk by also passing a directory.
 
@@ -153,12 +154,5 @@ Renders the search input box.
 #### `search_results`
 
 Renders the search results area.
-
-## TODO
-
--   [x] Enable specifying custom generation templates
--   [x] Extract default styles into stylesheet
--   [x] Add some kind of static JavaScript search index?
--   [ ] Add browse by hashtag/date
 
 [1]: https://github.com/tinysearch/tinysearch

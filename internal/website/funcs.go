@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/gosimple/slug"
+
 	"github.com/darkliquid/twoo/pkg/twitwoo"
 )
 
@@ -16,7 +18,12 @@ const (
 	linkSubstitution = " <a href=\"$2://$3\">$2://$3</a> "
 )
 
+var UseTagIndex = false
+
 func hashtagLink(tag string) string {
+	if UseTagIndex {
+		return "<a href=\"/tag/" + slug.Make(tag) + "\">#" + tag + "</a>"
+	}
 	return "<a href=\"https://twitter.com/hashtag/" + tag + "\">#" + tag + "</a>"
 }
 
