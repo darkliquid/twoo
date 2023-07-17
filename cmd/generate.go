@@ -479,7 +479,14 @@ func genExtractMedia(srcfs, destfs afero.Fs, tweet *twitwoo.Tweet) error {
 	return nil
 }
 
-func genIndexPage(srcfs, fs afero.Fs, data *twitwoo.Data, fns []string, prefix string, pageNum int64, hasNext bool) error {
+func genIndexPage(
+	srcfs, fs afero.Fs,
+	data *twitwoo.Data,
+	fns []string,
+	prefix string,
+	pageNum int64,
+	hasNext bool,
+) error {
 	vlog("Generating index page", prefix, pageNum, "with", len(fns), "tweets")
 
 	outname := filepath.Join(prefix, "index.html")
