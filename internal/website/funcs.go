@@ -122,6 +122,7 @@ func FuncMap(m *twitwoo.Manifest) template.FuncMap {
 				return ""
 			}
 
+			//nolint:gosec // input is trusted
 			return template.HTML(fmt.Sprintf(`
   <script type="module">
     import { search, default as init } from '%s/tinysearch_engine.js';
