@@ -26,7 +26,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12
 	github.com/magiconair/properties v1.8.7 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect.17.0
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/spf13/afero v1.10.0
 	github.com/spf13/cast v1.5.1 // indirect
