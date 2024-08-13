@@ -1,6 +1,6 @@
 module github.com/darkliquid/twoo
 
-go 1.20
+go 1.22
 
 require github.com/spf13/viper v1.19.0
 
