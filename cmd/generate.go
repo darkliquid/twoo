@@ -188,7 +188,7 @@ var generateCmd = &cobra.Command{
 	Short: "Generate static HTML",
 	Long:  generateHelp,
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		// Open the archive
 		afs, closer, err := util.Open(args[0])
 		if err != nil {
