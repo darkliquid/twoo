@@ -99,7 +99,7 @@ var extractTypes = []string{
 
 // dig taken from sprig library: github.com/Masterminds/sprig.
 func dig(ps ...interface{}) (interface{}, error) {
-	if len(ps) < 3 { //nolint:gomnd // documented below
+	if len(ps) < 3 { //nolint:mnd // documented below
 		return nil, errors.New("dig needs at least three arguments")
 	}
 	dict, ok := ps[len(ps)-1].(map[string]interface{})
@@ -110,7 +110,7 @@ func dig(ps ...interface{}) (interface{}, error) {
 		)
 	}
 	def := ps[len(ps)-2]
-	ks := make([]string, len(ps)-2) //nolint:gomnd // just stop it
+	ks := make([]string, len(ps)-2) //nolint:mnd // just stop it
 	for i := 0; i < len(ks); i++ {
 		ks[i], ok = ps[i].(string)
 		if !ok {

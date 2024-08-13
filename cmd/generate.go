@@ -514,7 +514,7 @@ func genIndexPage(
 		PageSize: int64(gencfg.PageSize),
 	}
 
-	if pageNum == 2 { //nolint:gomnd // 2 is the second page
+	if pageNum == 2 { //nolint:mnd // 2 is the second page
 		pd.PrevPage = path.Join("/", gencfg.SubDir, prefix, "/")
 	} else if pageNum > 1 {
 		pd.PrevPage = path.Join("/", gencfg.SubDir, prefix, fmt.Sprintf("/page/%d", pageNum-1))
