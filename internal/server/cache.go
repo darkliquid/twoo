@@ -39,7 +39,7 @@ func cache(cachedir string) func(http.Handler) http.Handler {
 			rec := httptest.NewRecorder()
 			next.ServeHTTP(rec, r)
 
-			result := rec.Result() //nolint:bodyclose // this is a recorder
+			result := rec.Result()
 			statusCode := result.StatusCode
 			value := rec.Body.Bytes()
 
