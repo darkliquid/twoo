@@ -134,7 +134,7 @@ func digFromDict(dict map[string]interface{}, d interface{}, ks []string) (inter
 	if len(ns) == 0 {
 		return step, nil
 	}
-	return digFromDict(step.(map[string]interface{}), d, ns)
+	return digFromDict(), d, ns) //nolint:errcheck // not my code
 }
 
 // toPrettyJSON taken from sprig library: github.com/Masterminds/sprig.
@@ -187,7 +187,11 @@ var extractCmd = &cobra.Command{
 			field := el.Field(i)
 			jTag := field.Tag.Get("json")
 			if jTag == args[0] {
-				return twitwoo.EachRaw(data, val.Field(i).Interface().(twitwoo.DataType), func(m map[string]any) error {
+				dt, ok := val.Field(i).Interface().(twitwoo.DataType)
+				if !ok {
+					return fmt.Errorf("invalid datatype entry: %#v", val.Field(i).Interface())
+				}
+				return twitwoo.EachRaw(data, dt, func(m map[string]any) error {
 					return tmpl.Execute(os.Stdout, m)
 				})
 			}
