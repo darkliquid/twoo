@@ -134,7 +134,7 @@ func digFromDict(dict map[string]interface{}, d interface{}, ks []string) (inter
 	if len(ns) == 0 {
 		return step, nil
 	}
-	return digFromDict(), d, ns) //nolint:errcheck // not my code
+	return digFromDict(step.(map[string]interface{}), d, ns) //nolint:errcheck // not my code
 }
 
 // toPrettyJSON taken from sprig library: github.com/Masterminds/sprig.
