@@ -20,7 +20,7 @@ require (
 
 require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
-	github.com/go-chi/chi/v5 v5.2.1
+	github.com/go-chi/chi/v5 v5.2.5
 	github.com/gosimple/slug v1.15.0
 	github.com/json-iterator/go v1.1.12
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
